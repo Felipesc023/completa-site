@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useProducts } from '../context/ProductContext';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { ArrowLeft, Check, Truck, ShieldCheck, Heart, ImageOff } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, Heart, ImageOff } from 'lucide-react';
 
 export const ProductDetail: React.FC = () => {
   const { id } = useParams();
@@ -25,7 +25,6 @@ export const ProductDetail: React.FC = () => {
   const handleAddToCart = () => {
     if (selectedSize) {
       addToCart(product, selectedSize);
-      alert('Produto adicionado ao carrinho!');
     }
   };
 
@@ -133,11 +132,7 @@ export const ProductDetail: React.FC = () => {
                 </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 pt-8 border-t border-stone-100">
-              <div className="flex items-center gap-3 text-stone-500">
-                <Truck size={20} />
-                <span className="text-xs">Frete grátis acima de R$199</span>
-              </div>
+            <div className="grid grid-cols-1 pt-8 border-t border-stone-100">
               <div className="flex items-center gap-3 text-stone-500">
                 <ShieldCheck size={20} />
                 <span className="text-xs">Garantia de 30 dias</span>

@@ -4,7 +4,7 @@ export interface Product {
   name: string;
   description: string;
   price: number;
-  promoPrice?: number; // Renomeado de salePrice
+  promoPrice?: number;
   category: string;
   brand?: string;
   imageUrl: string;
@@ -12,7 +12,8 @@ export interface Product {
   colors: string[];
   stock: number;
   
-  // Logística (Correios)
+  // Logística mantida apenas para o Admin se necessário no futuro, 
+  // mas ignorada no fluxo do cliente.
   weightKg: number;
   lengthCm: number;
   widthCm: number;
@@ -57,11 +58,6 @@ export interface Order {
     price: number;
     size: string;
   }[];
-  shipping: {
-    service: string;
-    price: number;
-    days: number;
-  };
   subtotal: number;
   total: number;
   status: OrderStatus;
