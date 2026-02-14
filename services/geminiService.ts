@@ -1,5 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 
+/**
+ * Edita uma imagem utilizando o modelo Gemini 2.5 Flash Image.
+ * A função valida rigorosamente a resposta para evitar erros de runtime e tipos.
+ */
 export const editImageWithGemini = async (base64Image: string, prompt: string): Promise<string> => {
   try {
     const apiKey = process.env.API_KEY;
@@ -10,9 +14,10 @@ export const editImageWithGemini = async (base64Image: string, prompt: string): 
 
     const ai = new GoogleGenAI({ apiKey });
     
+    // Remove o prefixo data:image/...;base64, se presente
     const cleanBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
 
-    const response = await ai.models.generateContent({
+    const response: GenerateContentResponse = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
@@ -27,31 +32,37 @@ export const editImageWithGemini = async (base64Image: string, prompt: string): 
       },
     });
 
-    // Validação rigorosa de todos os níveis da resposta
+    /**
+     * Validação segura em múltiplos níveis utilizando Optional Chaining.
+     * Verifica a existência de candidates, content e parts antes de processar.
+     */
     const candidates = response?.candidates;
+    
     if (candidates && candidates.length > 0) {
-      const firstCandidate = candidates[0];
-      if (firstCandidate && firstCandidate.content) {
-        const parts = firstCandidate.content.parts;
-        if (parts && parts.length > 0) {
-          for (const part of parts) {
-            // Prioridade: Retornar dados da imagem se presentes
-            if (part?.inlineData?.data) {
-              return `data:image/png;base64,${part.inlineData.data}`;
-            }
-            // Fallback: Retornar texto se for o que a IA devolveu
-            if (part?.text) {
-              return part.text;
-            }
+      const candidate = candidates[0];
+      const parts = candidate?.content?.parts;
+
+      if (parts && parts.length > 0) {
+        // Itera pelas partes para encontrar dados de imagem (inlineData) ou texto
+        for (const part of parts) {
+          // Se o modelo retornar uma nova imagem processada
+          if (part.inlineData?.data) {
+            return `data:image/png;base64,${part.inlineData.data}`;
+          }
+          
+          // Se o modelo retornar apenas texto (explicação ou erro textual)
+          if (part.text) {
+            return part.text;
           }
         }
       }
     }
     
-    // Conforme solicitado: Retornar string vazia se não houver conteúdo válido
+    // Retorno padrão caso a estrutura esperada não seja encontrada
     return "";
   } catch (error) {
     console.error("Gemini Edit Error:", error);
+    // Em caso de erro na API ou rede, retorna string vazia para manter consistência
     return "";
   }
 };
