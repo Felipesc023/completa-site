@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { CartItem, Product } from '../types';
 
@@ -49,7 +50,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const cartTotal = items.reduce((sum, item) => {
-      const price = item.salePrice || item.price;
+      // Fix: Renamed salePrice to promoPrice to match Product interface
+      const price = item.promoPrice || item.price;
       return sum + (price * item.quantity);
   }, 0);
   

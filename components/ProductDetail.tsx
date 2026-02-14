@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProducts } from '../context/ProductContext';
@@ -47,7 +48,6 @@ export const ProductDetail: React.FC = () => {
         </button>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-20">
-          {/* Image Section */}
           <div className="space-y-4">
              <div className="aspect-[3/4] bg-stone-100 rounded-sm overflow-hidden relative group">
                 {product.imageUrl ? (
@@ -64,7 +64,6 @@ export const ProductDetail: React.FC = () => {
              </div>
           </div>
 
-          {/* Info */}
           <div className="flex flex-col justify-center">
             <span className="text-brand-gold text-xs uppercase tracking-[0.2em] mb-2">{product.category}</span>
             <div className="flex justify-between items-start">
@@ -72,10 +71,10 @@ export const ProductDetail: React.FC = () => {
             </div>
             
             <div className="mb-8">
-                {product.salePrice && product.salePrice > 0 ? (
+                {product.promoPrice && product.promoPrice > 0 ? (
                     <div className="flex items-center gap-4">
                          <p className="text-3xl font-light text-brand-dark">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.salePrice)}
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.promoPrice)}
                         </p>
                         <p className="text-xl font-light text-stone-400 line-through">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
@@ -94,7 +93,6 @@ export const ProductDetail: React.FC = () => {
               </p>
             </div>
 
-            {/* Sizes */}
             <div className="mb-8">
               <span className="text-xs font-bold uppercase tracking-widest text-brand-dark block mb-3">Tamanho</span>
               <div className="flex space-x-3">
@@ -114,14 +112,13 @@ export const ProductDetail: React.FC = () => {
               </div>
             </div>
 
-            {/* Actions */}
             <div className="flex gap-4 mb-6">
                 <button
                 disabled={!selectedSize}
                 onClick={handleAddToCart}
                 className={`flex-grow py-4 text-sm uppercase tracking-widest font-medium transition-all rounded-sm ${
                     selectedSize
-                    ? 'bg-brand-gold text-white hover:bg-yellow-600 shadow-lg hover:shadow-xl'
+                    ? 'bg-brand-gold text-white hover:bg-yellow-600 shadow-lg'
                     : 'bg-stone-200 text-stone-400 cursor-not-allowed'
                 }`}
                 >
@@ -131,24 +128,21 @@ export const ProductDetail: React.FC = () => {
                 <button 
                     onClick={toggleWishlist}
                     className={`w-14 flex items-center justify-center border border-stone-200 rounded-sm transition-colors ${isWishlisted ? 'text-red-500 border-red-200 bg-red-50' : 'text-stone-400 hover:text-brand-dark hover:border-brand-dark'}`}
-                    title={isWishlisted ? "Remover da lista de desejos" : "Adicionar à lista de desejos"}
                 >
                     <Heart size={20} fill={isWishlisted ? "currentColor" : "none"} />
                 </button>
             </div>
 
-            {/* Benefits */}
             <div className="grid grid-cols-2 gap-4 pt-8 border-t border-stone-100">
               <div className="flex items-center gap-3 text-stone-500">
                 <Truck size={20} />
-                <span className="text-xs">Frete grátis Brasil</span>
+                <span className="text-xs">Frete grátis acima de R$199</span>
               </div>
               <div className="flex items-center gap-3 text-stone-500">
                 <ShieldCheck size={20} />
                 <span className="text-xs">Garantia de 30 dias</span>
               </div>
             </div>
-
           </div>
         </div>
       </div>

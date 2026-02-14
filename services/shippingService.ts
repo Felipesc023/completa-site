@@ -1,9 +1,11 @@
+
 import { CartItem } from '../types';
 
 export interface ShippingOption {
-  service: 'PAC' | 'SEDEX';
+  service: string;
   price: number;
   days: number;
+  isFree?: boolean;
 }
 
 export const getAddressByCep = async (cep: string) => {
@@ -21,49 +23,51 @@ export const getAddressByCep = async (cep: string) => {
   }
 };
 
-export const calculateShipping = (cep: string, items: CartItem[]): ShippingOption[] => {
+export const calculateShipping = (cep: string, items: CartItem[], subtotal: number): ShippingOption => {
   const cleanCep = cep.replace(/\D/g, '');
-  if (cleanCep.length !== 8) return [];
+  if (cleanCep.length !== 8) return { service: 'Indisponível', price: 0, days: 0 };
 
-  // 1. Calcular Peso Total
-  const totalWeight = items.reduce((acc, item) => acc + (item.weightKg || 0.3) * item.quantity, 0);
-  
-  // 2. Lógica de Região baseada no primeiro dígito do CEP (Simplificado para MVP)
-  // 0-3: Sudeste, 4: MG/ES, 5: Nordeste (BA/SE), 6: Nordeste (restante), 7: Centro-Oeste/Norte, 8-9: Sul
-  const firstDigit = parseInt(cleanCep[0]);
-  
-  let basePricePac = 20;
-  let basePriceSedex = 35;
-  let baseDaysPac = 5;
-  let baseDaysSedex = 2;
-
-  // Ajuste por região (Exemplo baseado saindo de SP - CEP 0xxxx)
-  if (firstDigit >= 4 && firstDigit <= 6) { // Nordeste / MG
-    basePricePac += 15;
-    basePriceSedex += 25;
-    baseDaysPac += 4;
-    baseDaysSedex += 3;
-  } else if (firstDigit === 7 || firstDigit === 8 || firstDigit === 9) { // Sul / Norte / CO
-    basePricePac += 12;
-    basePriceSedex += 20;
-    baseDaysPac += 3;
-    baseDaysSedex += 2;
+  // 1. Frete Grátis
+  if (subtotal >= 199) {
+    return {
+      service: 'Frete Grátis (Padrão)',
+      price: 0,
+      days: 5,
+      isFree: true
+    };
   }
 
-  // Ajuste por peso (R$ 5,00 por kg adicional após o primeiro kg)
-  const weightExtra = Math.max(0, totalWeight - 1);
-  const weightSurcharge = weightExtra * 5;
+  // 2. Base por UF
+  const firstDigit = parseInt(cleanCep[0]);
+  const ufCode = parseInt(cleanCep.substring(0, 2));
+  
+  let basePrice = 24; // Padrão demais regiões
+  let days = 7;
 
-  return [
-    {
-      service: 'PAC',
-      price: basePricePac + weightSurcharge,
-      days: baseDaysPac
-    },
-    {
-      service: 'SEDEX',
-      price: basePriceSedex + weightSurcharge,
-      days: baseDaysSedex
-    }
-  ];
+  // São Paulo (01-19)
+  if (ufCode >= 1 && ufCode <= 19) {
+    basePrice = 14;
+    days = 2;
+  } 
+  // RJ, MG, PR, SC, RS
+  else if (
+    (ufCode >= 20 && ufCode <= 28) || // RJ
+    (ufCode >= 30 && ufCode <= 39) || // MG
+    (ufCode >= 80 && ufCode <= 87) || // PR
+    (ufCode >= 88 && ufCode <= 89) || // SC
+    (ufCode >= 90 && ufCode <= 99)    // RS
+  ) {
+    basePrice = 19;
+    days = 4;
+  }
+
+  // 3. Adicional por volume (R$ 2 a cada 3 itens)
+  const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
+  const volumeSurcharge = Math.floor(totalItems / 3) * 2;
+
+  return {
+    service: 'Entrega Padrão',
+    price: basePrice + volumeSurcharge,
+    days: days
+  };
 };

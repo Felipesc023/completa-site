@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useProducts } from '../../context/ProductContext';
@@ -81,8 +82,9 @@ export const AdminProductList: React.FC = () => {
                   <td className="px-6 py-4 text-sm font-medium text-brand-dark">
                     <div className="flex flex-col">
                         <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}</span>
-                        {product.salePrice && product.salePrice > 0 && (
-                            <span className="text-xs text-green-600">Promo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.salePrice)}</span>
+                        {/* Fix: Renamed salePrice to promoPrice to match Product interface */}
+                        {product.promoPrice && product.promoPrice > 0 && (
+                            <span className="text-xs text-green-600">Promo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.promoPrice)}</span>
                         )}
                     </div>
                   </td>

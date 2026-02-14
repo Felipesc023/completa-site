@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, ImageOff } from 'lucide-react';
@@ -13,7 +14,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const isWishlisted = isInWishlist(product.id);
   
   const toggleWishlist = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent navigation
+    e.preventDefault();
     if (isWishlisted) {
       removeFromWishlist(product.id);
     } else {
@@ -38,16 +39,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </div>
           )}
 
-          {/* Badge for Sale */}
-          {product.salePrice && product.salePrice > 0 && (
+          {product.promoPrice && product.promoPrice > 0 && (
              <div className="absolute top-2 left-2 bg-brand-dark text-white text-[10px] uppercase tracking-widest px-2 py-1 rounded-sm z-10">
                 Promo
              </div>
           )}
 
-           {/* Badge for New */}
            {product.isLaunch && (
-             <div className="absolute top-2 left-2 bg-brand-gold text-white text-[10px] uppercase tracking-widest px-2 py-1 rounded-sm z-10" style={{ top: product.salePrice ? '32px' : '8px' }}>
+             <div className="absolute top-2 left-2 bg-brand-gold text-white text-[10px] uppercase tracking-widest px-2 py-1 rounded-sm z-10" style={{ top: product.promoPrice ? '32px' : '8px' }}>
                 Novo
              </div>
           )}
@@ -59,17 +58,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           <button 
             onClick={toggleWishlist}
             className="absolute top-2 right-2 p-1.5 md:p-2 bg-white/80 rounded-full text-brand-dark hover:text-red-500 hover:bg-white transition-all shadow-sm z-10"
-            aria-label="Adicionar à lista de desejos"
           >
             <Heart size={16} fill={isWishlisted ? "currentColor" : "none"} className={`w-4 h-4 md:w-[18px] md:h-[18px] ${isWishlisted ? "text-red-500" : ""}`} />
           </button>
         </div>
         <h3 className="text-xs md:text-sm font-medium text-brand-dark mb-1 group-hover:text-brand-gold transition-colors leading-tight">{product.name}</h3>
         <div className="flex items-center gap-2">
-            {product.salePrice && product.salePrice > 0 ? (
+            {product.promoPrice && product.promoPrice > 0 ? (
                 <>
                     <p className="text-xs md:text-sm text-brand-dark font-medium">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.salePrice)}
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.promoPrice)}
                     </p>
                     <p className="text-xs text-stone-400 line-through">
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}

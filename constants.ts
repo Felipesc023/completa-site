@@ -39,7 +39,8 @@ export const PRODUCTS: Product[] = [
     id: "2",
     name: "Blusa Seda Off-White",
     price: 299.90,
-    salePrice: 249.90,
+    // Fix: Renamed salePrice to promoPrice to match Product interface
+    promoPrice: 249.90,
     category: "Blusas",
     imageUrl: "https://cdn.jsdelivr.net/gh/Felipesc023/completa-assets@main/public/products/blusa_seda_1.jpg",
     description: "Blusa em seda toque suave com caimento fluido. Decote V discreto e mangas 3/4.",

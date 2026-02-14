@@ -1,17 +1,18 @@
+
 export interface Product {
   id: string;
   name: string;
   description: string;
   price: number;
-  salePrice?: number;
+  promoPrice?: number; // Renomeado de salePrice
   category: string;
   brand?: string;
   imageUrl: string;
   sizes: string[];
   colors: string[];
-  stock?: number;
+  stock: number;
   
-  // Logística
+  // Logística (Correios)
   weightKg: number;
   lengthCm: number;
   widthCm: number;
@@ -57,7 +58,7 @@ export interface Order {
     size: string;
   }[];
   shipping: {
-    service: string; // PAC ou SEDEX
+    service: string;
     price: number;
     days: number;
   };

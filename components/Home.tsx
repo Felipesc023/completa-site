@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Plus } from 'lucide-react';
@@ -80,20 +81,23 @@ export const Home: React.FC = () => {
         return products.sort((a, b) => b.soldCount - a.soldCount);
       case 'price_asc':
         return products.sort((a, b) => {
-             const priceA = a.salePrice || a.price;
-             const priceB = b.salePrice || b.price;
+             // Fix: Renamed salePrice to promoPrice to match Product interface
+             const priceA = a.promoPrice || a.price;
+             const priceB = b.promoPrice || b.price;
              return priceA - priceB;
         });
       case 'price_desc':
         return products.sort((a, b) => {
-             const priceA = a.salePrice || a.price;
-             const priceB = b.salePrice || b.price;
+             // Fix: Renamed salePrice to promoPrice to match Product interface
+             const priceA = a.promoPrice || a.price;
+             const priceB = b.promoPrice || b.price;
              return priceB - priceA;
         });
       case 'discount':
         return products.sort((a, b) => {
-            const discountA = a.salePrice ? (a.price - a.salePrice) / a.price : 0;
-            const discountB = b.salePrice ? (b.price - b.salePrice) / b.price : 0;
+            // Fix: Renamed salePrice to promoPrice to match Product interface
+            const discountA = a.promoPrice ? (a.price - a.promoPrice) / a.price : 0;
+            const discountB = b.promoPrice ? (b.price - b.promoPrice) / b.price : 0;
             return discountB - discountA;
         });
       case 'relevance':

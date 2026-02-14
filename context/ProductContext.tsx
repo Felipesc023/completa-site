@@ -2,7 +2,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product } from '../types';
 import { db } from '../services/firebase';
-// Fix: Import from firebase/firestore as a namespace to resolve "no exported member" errors.
 import * as firestore from 'firebase/firestore';
 
 const { 
@@ -54,28 +53,29 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   const sanitizeProductData = (data: any) => {
-    console.log("payload:ready - Iniciando sanitização de dados");
     const sanitized: any = {};
-    const numericFields = ['price', 'salePrice', 'stock', 'weightKg', 'lengthCm', 'widthCm', 'heightCm'];
+    const numericFields = ['price', 'promoPrice', 'stock', 'weightKg', 'lengthCm', 'widthCm', 'heightCm'];
     
     Object.keys(data).forEach(key => {
       const value = data[key];
       if (value === undefined) return;
 
       if (numericFields.includes(key)) {
-        const numValue = typeof value === 'string' ? value.replace(',', '.') : value;
-        sanitized[key] = numValue === '' ? 0 : parseFloat(numValue);
+        if (value === null || value === '') {
+            sanitized[key] = key === 'promoPrice' ? null : 0;
+        } else {
+            const numValue = typeof value === 'string' ? value.replace(',', '.') : value;
+            sanitized[key] = parseFloat(numValue);
+        }
       } else {
         sanitized[key] = value;
       }
     });
     
-    console.log("firestore:payload", sanitized);
     return sanitized;
   };
 
   const addProduct = async (productData: any) => {
-    console.log("submit:start - Iniciando criação de produto via CDN");
     try {
       const sanitized = sanitizeProductData({
         ...productData,
@@ -84,17 +84,15 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         updatedAt: serverTimestamp()
       });
 
-      const docRef = await addDoc(collection(db, 'products'), sanitized);
-      console.log(`firestore:success - ID: ${docRef.id}`);
+      await addDoc(collection(db, 'products'), sanitized);
     } catch (error) {
-      console.error("firestore:fail", error);
+      console.error("Error adding product:", error);
       throw error;
     }
   };
 
   const updateProduct = async (id: string, productData: any) => {
     try {
-      console.log(`submit:start - Atualizando produto ${id}`);
       const sanitized = sanitizeProductData({
         ...productData,
         updatedAt: serverTimestamp()
@@ -102,9 +100,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       const productRef = doc(db, 'products', id);
       await updateDoc(productRef, sanitized);
-      console.log("firestore:success - Produto atualizado");
     } catch (error) {
-      console.error("firestore:fail", error);
+      console.error("Error updating product:", error);
       throw error;
     }
   };
