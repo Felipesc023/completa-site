@@ -2,7 +2,7 @@ import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 
 /**
  * Edita uma imagem utilizando o modelo Gemini 2.5 Flash Image.
- * Implementação 100% segura para TypeScript strict.
+ * Implementação 100% segura para TypeScript strict e compatível com build de produção.
  */
 export const editImageWithGemini = async (
   base64Image: string,
@@ -18,7 +18,6 @@ export const editImageWithGemini = async (
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // Remove o prefixo data:image/...;base64, se presente
     const cleanBase64 = base64Image.replace(
       /^data:image\/(png|jpeg|jpg|webp);base64,/,
       ""
@@ -40,30 +39,29 @@ export const editImageWithGemini = async (
         },
       });
 
-    // 🔒 EXTRAÇÃO 100% SEGURA
-
+    // 🔒 EXTRAÇÃO 100% SEGURA VALIDADA PARA O COMPILADOR TSC
     const candidates = response?.candidates;
 
-    // Verifica se candidates é um array válido e não vazio
+    // 1. Verifica se candidates existe e é um array com elementos
     if (!Array.isArray(candidates) || candidates.length === 0) {
       return "";
     }
 
     const firstCandidate = candidates[0];
 
-    // Verifica se o candidato e seu conteúdo existem
+    // 2. Verifica se o primeiro candidato e o conteúdo existem
     if (!firstCandidate || !firstCandidate.content) {
       return "";
     }
 
     const parts = firstCandidate.content.parts;
 
-    // Verifica se parts é um array válido e não vazio
+    // 3. Verifica se parts existe e é um array com elementos
     if (!Array.isArray(parts) || parts.length === 0) {
       return "";
     }
 
-    // 1. Procura por imagem gerada (inlineData)
+    // 4. Procura imagem gerada (iterando de forma segura)
     for (const part of parts) {
       if (
         part &&
@@ -75,7 +73,7 @@ export const editImageWithGemini = async (
       }
     }
 
-    // 2. Fallback para texto caso não haja imagem
+    // 5. Fallback para texto (se não houver imagem)
     const firstPart = parts[0];
     if (firstPart && typeof firstPart.text === "string") {
       return firstPart.text;
