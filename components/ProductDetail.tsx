@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useProducts } from '../context/ProductContext';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { ArrowLeft, Heart, ImageOff } from 'lucide-react';
+import { ArrowLeft, Heart, ImageOff, Plus, Minus } from 'lucide-react';
 
 export const ProductDetail: React.FC = () => {
   const { id } = useParams();
@@ -13,6 +13,7 @@ export const ProductDetail: React.FC = () => {
   const { addToCart } = useCart();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState(1);
   
   const product = products.find(p => p.id === id);
 
@@ -24,8 +25,7 @@ export const ProductDetail: React.FC = () => {
 
   const handleAddToCart = () => {
     if (selectedSize) {
-      // Adiciona ao carrinho sem exibir alertas/popups
-      addToCart(product, selectedSize);
+      addToCart(product, selectedSize, quantity);
     }
   };
 
@@ -109,6 +109,25 @@ export const ProductDetail: React.FC = () => {
                     {size}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div className="mb-8">
+              <span className="text-xs font-bold uppercase tracking-widest text-brand-dark block mb-3">Quantidade</span>
+              <div className="flex items-center gap-4 border border-stone-200 w-fit p-1 rounded-sm">
+                <button 
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="w-8 h-8 flex items-center justify-center text-stone-500 hover:text-brand-dark hover:bg-stone-100 transition-colors"
+                >
+                  <Minus size={14} />
+                </button>
+                <span className="w-8 text-center text-sm font-medium">{quantity}</span>
+                <button 
+                  onClick={() => setQuantity(Math.min(product.stock || 99, quantity + 1))}
+                  className="w-8 h-8 flex items-center justify-center text-stone-500 hover:text-brand-dark hover:bg-stone-100 transition-colors"
+                >
+                  <Plus size={14} />
+                </button>
               </div>
             </div>
 
