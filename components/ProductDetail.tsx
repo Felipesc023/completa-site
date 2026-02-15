@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useProducts } from '../context/ProductContext';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { ArrowLeft, ShieldCheck, Heart, ImageOff } from 'lucide-react';
+import { ArrowLeft, Heart, ImageOff } from 'lucide-react';
 
 export const ProductDetail: React.FC = () => {
   const { id } = useParams();
@@ -24,6 +24,7 @@ export const ProductDetail: React.FC = () => {
 
   const handleAddToCart = () => {
     if (selectedSize) {
+      // Adiciona ao carrinho sem exibir alertas/popups
       addToCart(product, selectedSize);
     }
   };
@@ -130,13 +131,6 @@ export const ProductDetail: React.FC = () => {
                 >
                     <Heart size={20} fill={isWishlisted ? "currentColor" : "none"} />
                 </button>
-            </div>
-
-            <div className="grid grid-cols-1 pt-8 border-t border-stone-100">
-              <div className="flex items-center gap-3 text-stone-500">
-                <ShieldCheck size={20} />
-                <span className="text-xs">Garantia de 30 dias</span>
-              </div>
             </div>
           </div>
         </div>

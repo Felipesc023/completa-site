@@ -15,6 +15,7 @@ export const Cart: React.FC = () => {
   const navigate = useNavigate();
   
   const [isProcessing, setIsProcessing] = useState(false);
+  const [cep, setCep] = useState('');
 
   const handleFinalize = async () => {
     setIsProcessing(true);
@@ -25,7 +26,7 @@ export const Cart: React.FC = () => {
         customerPhone: '',
         customerEmail: user?.email || '',
         address: {
-          cep: '',
+          cep: cep,
           street: '',
           number: '',
           complement: '',
@@ -57,10 +58,13 @@ export const Cart: React.FC = () => {
       navigate('/');
     } catch (error) {
       console.error("Erro ao finalizar:", error);
-      alert("Erro ao processar pedido.");
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleCalculateShipping = () => {
+    console.log("Calcular frete:", cep);
   };
 
   if (items.length === 0) {
@@ -83,7 +87,7 @@ export const Cart: React.FC = () => {
             {items.map((item, idx) => (
               <div key={`${item.id}-${idx}`} className="flex gap-4 p-4 border border-stone-100 rounded-sm bg-white">
                 <div className="w-24 h-32 bg-stone-50 rounded-sm overflow-hidden flex-shrink-0">
-                  <img src={item.imageUrl} className="w-full h-full object-cover" />
+                  <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-grow">
                   <div className="flex justify-between">
@@ -102,21 +106,45 @@ export const Cart: React.FC = () => {
           <div className="space-y-6">
             <div className="bg-white p-6 border border-stone-100 shadow-xl">
               <h2 className="font-serif text-xl mb-6 text-brand-dark">Resumo</h2>
-              <div className="space-y-3 text-sm font-light text-stone-500">
+
+              <div className="mb-8 space-y-3">
+                <label className="text-[10px] uppercase font-bold tracking-widest text-stone-500">Calcular Frete</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="CEP: 00000-000" 
+                    value={cep}
+                    onChange={(e) => setCep(e.target.value)}
+                    className="flex-grow p-2 border border-stone-200 text-sm focus:outline-none focus:border-brand-gold bg-stone-50"
+                  />
+                  <button 
+                    onClick={handleCalculateShipping}
+                    className="px-4 py-2 bg-brand-dark text-white text-[10px] uppercase tracking-widest hover:bg-brand-gold transition-colors"
+                  >
+                    Calcular
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4 text-sm font-light text-stone-500">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span>R$ {cartTotal.toFixed(2)}</span>
+                  <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cartTotal)}</span>
                 </div>
-                <div className="border-t border-stone-100 pt-3 flex justify-between text-brand-dark font-bold text-lg">
+                <div className="flex justify-between items-center">
+                  <span>Frete</span>
+                  <span className="text-[10px] uppercase tracking-widest bg-stone-100 px-2 py-0.5 rounded text-stone-400 border border-stone-200">A calcular</span>
+                </div>
+                <div className="border-t border-stone-100 pt-4 flex justify-between text-brand-dark font-bold text-lg">
                   <span>Total</span>
-                  <span>R$ {cartTotal.toFixed(2)}</span>
+                  <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cartTotal)}</span>
                 </div>
               </div>
 
               <button 
                 onClick={handleFinalize}
                 disabled={isProcessing}
-                className="w-full mt-8 bg-brand-gold text-white py-4 uppercase text-xs tracking-widest font-bold hover:bg-yellow-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full mt-8 bg-brand-gold text-white py-4 uppercase text-xs tracking-widest font-bold hover:bg-brand-dark transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg"
               >
                 {isProcessing ? 'Processando...' : <><MessageCircle size={16} /> Finalizar WhatsApp</>}
               </button>
