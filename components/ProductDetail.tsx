@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProducts } from '../context/ProductContext';
@@ -13,7 +12,10 @@ export const ProductDetail: React.FC = () => {
   const { addToCart } = useCart();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [zoomPos, setZoomPos] = useState({ x: 0, y: 0, show: false });
+  const [error, setError] = useState<string | null>(null);
   
   const product = products.find(p => p.id === id);
 
@@ -24,9 +26,17 @@ export const ProductDetail: React.FC = () => {
   const isWishlisted = isInWishlist(product.id);
 
   const handleAddToCart = () => {
-    if (selectedSize) {
-      addToCart(product, selectedSize, quantity);
+    setError(null);
+    if (!selectedSize) {
+      setError("Por favor, selecione um tamanho.");
+      return;
     }
+    if (product.colors.length > 0 && !selectedColor) {
+      setError("Por favor, selecione uma cor.");
+      return;
+    }
+    
+    addToCart(product, selectedSize, selectedColor || 'Padrão', quantity);
   };
 
   const toggleWishlist = () => {
@@ -35,6 +45,13 @@ export const ProductDetail: React.FC = () => {
     } else {
       addToWishlist(product.id);
     }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.pageX - left - window.scrollX) / width) * 100;
+    const y = ((e.pageY - top - window.scrollY) / height) * 100;
+    setZoomPos({ x, y, show: true });
   };
 
   return (
@@ -48,14 +65,22 @@ export const ProductDetail: React.FC = () => {
         </button>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-20">
+          {/* Imagem com Hover Zoom */}
           <div className="space-y-4">
-             <div className="aspect-[3/4] bg-stone-100 rounded-sm overflow-hidden relative group">
+             <div 
+               className="aspect-[3/4] bg-stone-100 rounded-sm overflow-hidden relative cursor-zoom-in"
+               onMouseMove={handleMouseMove}
+               onMouseLeave={() => setZoomPos(prev => ({ ...prev, show: false }))}
+             >
                 {product.imageUrl ? (
-                    <img 
-                    src={product.imageUrl} 
-                    alt={product.name} 
-                    className="w-full h-full object-cover"
-                    />
+                    <>
+                      <img 
+                        src={product.imageUrl} 
+                        alt={product.name} 
+                        className={`w-full h-full object-cover transition-transform duration-500 ${zoomPos.show ? 'scale-[1.5]' : 'scale-100'}`}
+                        style={zoomPos.show ? { transformOrigin: `${zoomPos.x}% ${zoomPos.y}%` } : {}}
+                      />
+                    </>
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-stone-300">
                         <ImageOff size={64} />
@@ -93,13 +118,36 @@ export const ProductDetail: React.FC = () => {
               </p>
             </div>
 
+            {/* Seleção de Cor */}
+            {product.colors.length > 0 && (
+              <div className="mb-8">
+                <span className="text-xs font-bold uppercase tracking-widest text-brand-dark block mb-3">Cor</span>
+                <div className="flex flex-wrap gap-3">
+                  {product.colors.map(color => (
+                    <button
+                      key={color}
+                      onClick={() => { setSelectedColor(color); setError(null); }}
+                      className={`px-4 py-2 border rounded-sm text-xs uppercase tracking-widest transition-all ${
+                        selectedColor === color
+                          ? 'border-brand-dark bg-brand-dark text-white'
+                          : 'border-stone-300 text-stone-600 hover:border-brand-gold'
+                      }`}
+                    >
+                      {color}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Seleção de Tamanho */}
             <div className="mb-8">
               <span className="text-xs font-bold uppercase tracking-widest text-brand-dark block mb-3">Tamanho</span>
               <div className="flex space-x-3">
                 {product.sizes.map(size => (
                   <button
                     key={size}
-                    onClick={() => setSelectedSize(size)}
+                    onClick={() => { setSelectedSize(size); setError(null); }}
                     className={`w-12 h-12 flex items-center justify-center border transition-all rounded-sm ${
                       selectedSize === size
                         ? 'border-brand-dark bg-brand-dark text-white'
@@ -112,6 +160,7 @@ export const ProductDetail: React.FC = () => {
               </div>
             </div>
 
+            {/* Seletor de Quantidade */}
             <div className="mb-8">
               <span className="text-xs font-bold uppercase tracking-widest text-brand-dark block mb-3">Quantidade</span>
               <div className="flex items-center gap-4 border border-stone-200 w-fit p-1 rounded-sm">
@@ -131,17 +180,14 @@ export const ProductDetail: React.FC = () => {
               </div>
             </div>
 
+            {error && <p className="text-red-500 text-xs mb-4 font-medium animate-fade-in">{error}</p>}
+
             <div className="flex gap-4 mb-6">
                 <button
-                disabled={!selectedSize}
                 onClick={handleAddToCart}
-                className={`flex-grow py-4 text-sm uppercase tracking-widest font-medium transition-all rounded-sm ${
-                    selectedSize
-                    ? 'bg-brand-gold text-white hover:bg-yellow-600 shadow-lg'
-                    : 'bg-stone-200 text-stone-400 cursor-not-allowed'
-                }`}
+                className="flex-grow py-4 text-sm uppercase tracking-widest font-medium transition-all rounded-sm bg-brand-dark text-white hover:bg-brand-gold shadow-lg"
                 >
-                {selectedSize ? 'Adicionar ao Carrinho' : 'Selecione um tamanho'}
+                  Adicionar à Sacola
                 </button>
                 
                 <button 

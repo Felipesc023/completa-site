@@ -1,20 +1,19 @@
-
 export interface Product {
   id: string;
   name: string;
   description: string;
   price: number;
-  promoPrice?: number;
+  promoPrice?: number | null;
   category: string;
   brand?: string;
   imageUrl: string;
   sizes: string[];
   colors: string[];
   stock: number;
+  sku?: string;
   
-  // Logística mantida apenas para o Admin se necessário no futuro, 
-  // mas ignorada no fluxo do cliente.
-  weightKg: number;
+  // Logística (unidades em gramas e cm)
+  weightKg: number; // Mantido como KG por compatibilidade, mas trataremos como peso base
   lengthCm: number;
   widthCm: number;
   heightCm: number;
@@ -32,6 +31,7 @@ export interface Product {
 export interface CartItem extends Product {
   quantity: number;
   selectedSize: string;
+  selectedColor: string;
 }
 
 export type OrderStatus = 'aguardando_pagamento' | 'pago' | 'cancelado' | 'enviado';
@@ -57,8 +57,10 @@ export interface Order {
     quantity: number;
     price: number;
     size: string;
+    color: string;
   }[];
   subtotal: number;
+  shippingPrice: number;
   total: number;
   status: OrderStatus;
   paymentLink?: string;

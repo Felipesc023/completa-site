@@ -1,14 +1,16 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { CartItem, Product } from '../types';
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (product: Product, size: string, quantity?: number) => void;
-  removeFromCart: (productId: string, size: string) => void;
-  updateCartItemQuantity: (productId: string, size: string, quantity: number) => void;
+  addToCart: (product: Product, size: string, color: string, quantity?: number) => void;
+  removeFromCart: (productId: string, size: string, color: string) => void;
+  updateCartItemQuantity: (productId: string, size: string, color: string, quantity: number) => void;
   cartTotal: number;
   cartCount: number;
+  isCartOpen: boolean;
+  setIsCartOpen: (open: boolean) => void;
+  toastMessage: string | null;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -19,59 +21,84 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const saved = localStorage.getItem('completa_cart');
       return saved ? JSON.parse(saved) : [];
     } catch (error) {
-      console.error('Error reading cart from localStorage', error);
       return [];
     }
   });
 
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
   useEffect(() => {
-    try {
-      localStorage.setItem('completa_cart', JSON.stringify(items));
-    } catch (error) {
-      console.error('Error saving cart to localStorage', error);
-    }
+    localStorage.setItem('completa_cart', JSON.stringify(items));
   }, [items]);
 
-  const addToCart = (product: Product, size: string, quantity: number = 1) => {
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const addToCart = (product: Product, size: string, color: string, quantity: number = 1) => {
     setItems(prev => {
-      const existing = prev.find(item => item.id === product.id && item.selectedSize === size);
+      const existing = prev.find(item => 
+        item.id === product.id && 
+        item.selectedSize === size && 
+        item.selectedColor === color
+      );
+      
       if (existing) {
+        showToast("Quantidade atualizada na sacola");
         return prev.map(item => 
-          (item.id === product.id && item.selectedSize === size)
+          (item.id === product.id && item.selectedSize === size && item.selectedColor === color)
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       }
-      return [...prev, { ...product, quantity, selectedSize: size }];
+      
+      setIsCartOpen(true);
+      return [...prev, { ...product, quantity, selectedSize: size, selectedColor: color }];
     });
   };
 
-  const updateCartItemQuantity = (productId: string, size: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(productId, size);
-      return;
-    }
+  const updateCartItemQuantity = (productId: string, size: string, color: string, quantity: number) => {
+    if (quantity < 1) return; // Não remove se chegar a 1 conforme solicitado
     setItems(prev => prev.map(item => 
-      (item.id === productId && item.selectedSize === size)
+      (item.id === productId && item.selectedSize === size && item.selectedColor === color)
         ? { ...item, quantity }
         : item
     ));
   };
 
-  const removeFromCart = (productId: string, size: string) => {
-    setItems(prev => prev.filter(item => !(item.id === productId && item.selectedSize === size)));
+  const removeFromCart = (productId: string, size: string, color: string) => {
+    setItems(prev => prev.filter(item => 
+      !(item.id === productId && item.selectedSize === size && item.selectedColor === color)
+    ));
   };
 
   const cartTotal = items.reduce((sum, item) => {
-      const price = item.promoPrice || item.price;
-      return sum + (price * item.quantity);
+    const price = item.promoPrice || item.price;
+    return sum + (price * item.quantity);
   }, 0);
   
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ items, addToCart, removeFromCart, updateCartItemQuantity, cartTotal, cartCount }}>
+    <CartContext.Provider value={{ 
+      items, 
+      addToCart, 
+      removeFromCart, 
+      updateCartItemQuantity, 
+      cartTotal, 
+      cartCount, 
+      isCartOpen, 
+      setIsCartOpen,
+      toastMessage
+    }}>
       {children}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 bg-brand-dark text-white px-6 py-3 rounded-lg shadow-2xl z-[100] animate-slide-up text-xs font-medium uppercase tracking-widest">
+          {toastMessage}
+        </div>
+      )}
     </CartContext.Provider>
   );
 };

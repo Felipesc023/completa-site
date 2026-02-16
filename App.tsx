@@ -7,6 +7,7 @@ import { ProductDetail } from './components/ProductDetail';
 import { Wishlist } from './components/Wishlist';
 import { Contact } from './components/Contact';
 import { Cart } from './components/Cart';
+import { Checkout } from './components/Checkout';
 import { Login } from './components/auth/Login';
 import { Register } from './components/auth/Register';
 import { AdminLayout } from './components/admin/AdminLayout';
@@ -44,6 +45,7 @@ const App: React.FC = () => {
                   <Route path="product/:id" element={<ProductDetail />} />
                   <Route path="wishlist" element={<Wishlist />} />
                   <Route path="cart" element={<Cart />} />
+                  <Route path="checkout" element={<Checkout />} />
                   <Route path="contact" element={<Contact />} />
                   <Route path="login" element={<Login />} />
                   <Route path="register" element={<Register />} />

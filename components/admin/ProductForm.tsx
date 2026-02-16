@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProducts } from '../../context/ProductContext';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowLeft, Save, Upload, RefreshCw, Package, Ruler, DollarSign, List, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Save, Upload, RefreshCw, Package, Ruler, DollarSign, List, Image as ImageIcon, Box } from 'lucide-react';
 import { CATEGORIES, BRANDS } from '../../constants';
 
 const ALL_SIZES = ["PP", "P", "M", "G", "GG", "36", "38", "40", "42", "44"];
@@ -21,6 +20,7 @@ export const AdminProductForm: React.FC = () => {
     description: '',
     price: '', 
     promoPrice: '',
+    sku: '',
     category: 'Vestidos',
     brand: BRANDS[0],
     imageUrl: '',
@@ -50,6 +50,7 @@ export const AdminProductForm: React.FC = () => {
             description: product.description || '',
             price: product.price?.toString() || '',
             promoPrice: product.promoPrice?.toString() || '',
+            sku: product.sku || '',
             category: product.category || 'Vestidos',
             brand: product.brand || BRANDS[0],
             imageUrl: product.imageUrl || '',
@@ -134,7 +135,6 @@ export const AdminProductForm: React.FC = () => {
     e.preventDefault();
     if (!isAdmin) return;
 
-    // Validação básica
     if (formData.promoPrice && parseFloat(formData.promoPrice) >= parseFloat(formData.price)) {
         alert("O preço promocional deve ser menor que o preço original.");
         return;
@@ -174,6 +174,13 @@ export const AdminProductForm: React.FC = () => {
     }
   };
 
+  const handleAddColor = () => {
+    const color = prompt("Digite o nome da cor:");
+    if (color && !formData.colors.includes(color)) {
+      handleArrayChange('colors', color);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto animate-fade-in pb-12">
       <div className="flex items-center gap-4 mb-8">
@@ -188,16 +195,21 @@ export const AdminProductForm: React.FC = () => {
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-            {/* Informações Básicas */}
             <div className="bg-white rounded-xl shadow-sm border border-stone-100 p-8 space-y-6">
                 <div className="flex items-center gap-2 border-b border-stone-100 pb-4 mb-6">
                     <List className="text-brand-gold" size={20} />
                     <h2 className="font-serif text-xl text-brand-dark">Informações Básicas</h2>
                 </div>
                 
-                <div className="space-y-1.5">
-                    <label className="text-[10px] uppercase font-bold tracking-widest text-stone-500">Nome do Produto</label>
-                    <input type="text" name="name" value={formData.name} onChange={handleChange} required className="w-full p-3 bg-stone-50 border border-transparent rounded-lg text-sm focus:outline-none focus:bg-white focus:ring-1 focus:ring-brand-gold/50 transition-all text-brand-dark" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-[10px] uppercase font-bold tracking-widest text-stone-500">Nome do Produto</label>
+                      <input type="text" name="name" value={formData.name} onChange={handleChange} required className="w-full p-3 bg-stone-50 border border-transparent rounded-lg text-sm focus:outline-none focus:bg-white focus:ring-1 focus:ring-brand-gold/50 transition-all text-brand-dark" />
+                  </div>
+                  <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase font-bold tracking-widest text-stone-500">SKU (Opcional)</label>
+                      <input type="text" name="sku" value={formData.sku} onChange={handleChange} className="w-full p-3 bg-stone-50 border border-transparent rounded-lg text-sm text-brand-dark" placeholder="EX: VEST-001" />
+                  </div>
                 </div>
                 
                 <div className="space-y-1.5">
@@ -221,7 +233,6 @@ export const AdminProductForm: React.FC = () => {
                 </div>
             </div>
 
-            {/* Preço e Estoque */}
             <div className="bg-white rounded-xl shadow-sm border border-stone-100 p-8 space-y-6">
                 <div className="flex items-center gap-2 border-b border-stone-100 pb-4 mb-6">
                     <DollarSign className="text-brand-gold" size={20} />
@@ -238,24 +249,37 @@ export const AdminProductForm: React.FC = () => {
                         <input type="number" step="0.01" name="promoPrice" value={formData.promoPrice} onChange={handleChange} className="w-full p-3 bg-stone-50 border border-transparent rounded-lg text-sm text-brand-dark" placeholder="Opcional" />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-bold tracking-widest text-stone-500">Estoque Atual</label>
+                        <label className="text-[10px] uppercase font-bold tracking-widest text-stone-500">Estoque Geral</label>
                         <input type="number" name="stock" value={formData.stock} onChange={handleChange} required className="w-full p-3 bg-stone-50 border border-transparent rounded-lg text-sm text-brand-dark" />
                     </div>
                 </div>
             </div>
 
-            {/* Logística */}
+            <div className="bg-white rounded-xl shadow-sm border border-stone-100 p-8 space-y-6">
+                <div className="flex items-center gap-2 border-b border-stone-100 pb-4 mb-6">
+                    <Box className="text-brand-gold" size={20} />
+                    <h2 className="font-serif text-xl text-brand-dark">Cores do Produto</h2>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {formData.colors.map(color => (
+                    <span key={color} className="inline-flex items-center gap-2 bg-stone-100 px-3 py-1 rounded text-xs">
+                      {color} <button type="button" onClick={() => handleArrayChange('colors', color)} className="text-red-400">×</button>
+                    </span>
+                  ))}
+                  <button type="button" onClick={handleAddColor} className="text-[10px] uppercase font-bold text-brand-gold border border-brand-gold border-dashed px-4 py-2 rounded">+ Cor</button>
+                </div>
+            </div>
+
             <div className="bg-white rounded-xl shadow-sm border border-stone-100 p-8 space-y-6">
                 <div className="flex items-center gap-2 border-b border-stone-100 pb-4 mb-6">
                     <Package className="text-brand-gold" size={20} />
-                    <h2 className="font-serif text-xl text-brand-dark">Logística (Correios)</h2>
+                    <h2 className="font-serif text-xl text-brand-dark">Logística (Cálculo de Frete)</h2>
                 </div>
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="space-y-1.5">
                         <label className="text-[10px] uppercase font-bold tracking-widest text-stone-500">Peso (Kg)</label>
                         <input type="number" step="0.1" name="weightKg" value={formData.weightKg} onChange={handleChange} required className="w-full p-3 bg-stone-50 border border-transparent rounded-lg text-sm text-brand-dark" />
-                        <span className="text-[9px] text-stone-400">Ex: 0.3 blusas / 0.6 vestidos</span>
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-[10px] uppercase font-bold tracking-widest text-stone-500">Comp. (cm)</label>
@@ -273,9 +297,7 @@ export const AdminProductForm: React.FC = () => {
             </div>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
-            {/* Mídia */}
             <div className="bg-white rounded-xl shadow-sm border border-stone-100 p-8 space-y-6">
                 <div className="flex items-center gap-2 border-b border-stone-100 pb-4">
                     <ImageIcon className="text-brand-gold" size={20} />
@@ -309,7 +331,6 @@ export const AdminProductForm: React.FC = () => {
                 </div>
             </div>
 
-            {/* Variantes */}
             <div className="bg-white rounded-xl shadow-sm border border-stone-100 p-8 space-y-6">
                 <div className="flex items-center gap-2 border-b border-stone-100 pb-4">
                     <Ruler className="text-brand-gold" size={20} />

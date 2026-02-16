@@ -124,7 +124,8 @@ export const Cart: React.FC = () => {
                   <div>
                     <h3 className="text-sm font-medium text-brand-dark">{item.name}</h3>
                     <p className="text-[10px] text-stone-400 uppercase tracking-widest mt-1">TAM: {item.selectedSize}</p>
-                    <button onClick={() => removeFromCart(item.id, item.selectedSize)} className="text-stone-300 hover:text-red-500 transition-colors mt-2 flex items-center gap-1 text-[10px] uppercase font-bold tracking-tighter">
+                    {/* Fix: Added required color argument to removeFromCart */}
+                    <button onClick={() => removeFromCart(item.id, item.selectedSize, item.selectedColor)} className="text-stone-300 hover:text-red-500 transition-colors mt-2 flex items-center gap-1 text-[10px] uppercase font-bold tracking-tighter">
                       <Trash2 size={12}/> Remover
                     </button>
                   </div>
@@ -132,9 +133,11 @@ export const Cart: React.FC = () => {
 
                 <div className="flex justify-center">
                   <div className="flex items-center gap-2 border border-stone-200 rounded p-1">
-                    <button onClick={() => updateCartItemQuantity(item.id, item.selectedSize, item.quantity - 1)} className="p-1 hover:bg-stone-50 text-stone-500"><Minus size={12}/></button>
+                    {/* Fix: Added required color argument to updateCartItemQuantity */}
+                    <button onClick={() => updateCartItemQuantity(item.id, item.selectedSize, item.selectedColor, item.quantity - 1)} className="p-1 hover:bg-stone-50 text-stone-500"><Minus size={12}/></button>
                     <span className="text-xs w-6 text-center">{item.quantity}</span>
-                    <button onClick={() => updateCartItemQuantity(item.id, item.selectedSize, item.quantity + 1)} className="p-1 hover:bg-stone-50 text-stone-500"><Plus size={12}/></button>
+                    {/* Fix: Added required color argument to updateCartItemQuantity */}
+                    <button onClick={() => updateCartItemQuantity(item.id, item.selectedSize, item.selectedColor, item.quantity + 1)} className="p-1 hover:bg-stone-50 text-stone-500"><Plus size={12}/></button>
                   </div>
                 </div>
 
