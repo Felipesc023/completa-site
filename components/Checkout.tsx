@@ -1,9 +1,9 @@
-
 import React, { useState, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, MapPin, User as UserIcon, CreditCard, ChevronLeft, ChevronRight, RefreshCw, Minus, Plus } from 'lucide-react';
+import { ShoppingBag, MapPin, User as UserIcon, CreditCard, ChevronLeft, ChevronRight, RefreshCw, Minus, Plus, AlertCircle } from 'lucide-react';
+import { createPagBankCheckout } from '../services/pagbankService';
 
 type Step = 'sacola' | 'identificacao' | 'entrega' | 'pagamento';
 
@@ -16,6 +16,8 @@ export const Checkout: React.FC = () => {
   const [cep, setCep] = useState('');
   const [shippingData, setShippingData] = useState<{ price: number; time: string } | null>(null);
   const [shippingLoading, setShippingLoading] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   
   const [deliveryMode, setDeliveryMode] = useState<'entrega' | 'retirada'>('entrega');
   const [address, setAddress] = useState({
@@ -45,6 +47,62 @@ export const Checkout: React.FC = () => {
 
   const finalShippingPrice = deliveryMode === 'retirada' ? 0 : (shippingData?.price || 0);
   const finalTotal = cartTotal + finalShippingPrice;
+
+  const handleFinalizeCheckout = async () => {
+    setCheckoutError(null);
+    
+    // Validações básicas
+    if (!address.cpf || address.cpf.replace(/\D/g, '').length !== 11) {
+      setCheckoutError("CPF inválido ou não informado.");
+      return;
+    }
+    if (!address.telefone || address.telefone.replace(/\D/g, '').length < 10) {
+      setCheckoutError("Telefone inválido ou não informado.");
+      return;
+    }
+
+    setCheckoutLoading(true);
+    try {
+      const checkoutData = {
+        items,
+        customer: {
+          name: address.nome || user?.name || 'Cliente Completa',
+          email: user?.email || '',
+          phone: address.telefone,
+          tax_id: address.cpf
+        },
+        shipping: {
+          price: finalShippingPrice,
+          cep: cep,
+          street: address.rua,
+          number: address.numero,
+          complement: address.complemento,
+          neighborhood: address.bairro,
+          city: address.cidade,
+          state: address.uf
+        },
+        referenceId: `COMPLETA_${Date.now()}`
+      };
+
+      const result = await createPagBankCheckout(checkoutData);
+      
+      if (result.checkoutUrl) {
+        // Redireciona para o link de pagamento do PagBank
+        window.location.href = result.checkoutUrl;
+      } else {
+        throw new Error("Link de pagamento não retornado pela API.");
+      }
+    } catch (err: any) {
+      setCheckoutError(err.message || "Ocorreu um erro ao processar seu pagamento. Tente novamente.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setAddress(prev => ({ ...prev, [name]: value }));
+  };
 
   if (items.length === 0) {
     return (
@@ -89,13 +147,10 @@ export const Checkout: React.FC = () => {
                       <p className="text-[10px] text-stone-400 uppercase tracking-widest mt-1">Tam: {item.selectedSize} | Cor: {item.selectedColor}</p>
                       <div className="flex items-center gap-4 mt-4">
                         <div className="flex items-center gap-2 border border-stone-100 rounded px-2">
-                          {/* Fix: updateCartItemQuantity requires selectedColor */}
                           <button onClick={() => updateCartItemQuantity(item.id, item.selectedSize, item.selectedColor, item.quantity - 1)} className="p-1"><Minus size={12}/></button>
                           <span className="text-xs">{item.quantity}</span>
-                          {/* Fix: updateCartItemQuantity requires selectedColor */}
                           <button onClick={() => updateCartItemQuantity(item.id, item.selectedSize, item.selectedColor, item.quantity + 1)} className="p-1"><Plus size={12}/></button>
                         </div>
-                        {/* Fix: removeFromCart requires selectedColor */}
                         <button onClick={() => removeFromCart(item.id, item.selectedSize, item.selectedColor)} className="text-[10px] text-red-400 uppercase font-bold tracking-widest">Remover</button>
                       </div>
                     </div>
@@ -133,25 +188,60 @@ export const Checkout: React.FC = () => {
 
             {step === 'entrega' && (
               <div className="space-y-6">
-                <h2 className="font-serif text-2xl mb-6 flex items-center gap-2"><MapPin /> Entrega</h2>
+                <h2 className="font-serif text-2xl mb-6 flex items-center gap-2"><MapPin /> Dados de Entrega</h2>
                 <div className="flex gap-4 mb-8">
                   <button onClick={() => setDeliveryMode('entrega')} className={`flex-1 py-4 border rounded font-bold text-[10px] uppercase tracking-widest transition-all ${deliveryMode === 'entrega' ? 'border-brand-dark bg-brand-dark text-white shadow-lg' : 'border-stone-200 text-stone-400'}`}>Entrega em Casa</button>
                   <button onClick={() => setDeliveryMode('retirada')} className={`flex-1 py-4 border rounded font-bold text-[10px] uppercase tracking-widest transition-all ${deliveryMode === 'retirada' ? 'border-brand-dark bg-brand-dark text-white shadow-lg' : 'border-stone-200 text-stone-400'}`}>Retirar na Loja</button>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-1 block">Nome Completo</label>
+                    <input type="text" name="nome" placeholder="Nome Recebedor" value={address.nome} onChange={handleInputChange} className="w-full p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-1 block">Telefone</label>
+                    <input type="text" name="telefone" placeholder="(00) 00000-0000" value={address.telefone} onChange={handleInputChange} className="w-full p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-1 block">CPF (Obrigatório p/ NF)</label>
+                    <input type="text" name="cpf" placeholder="000.000.000-00" value={address.cpf} onChange={handleInputChange} className="w-full p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none" />
+                  </div>
+                </div>
+
                 {deliveryMode === 'entrega' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" placeholder="Nome Recebedor" className="p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none md:col-span-2" />
-                    <input type="text" placeholder="Telefone" className="p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none" />
-                    <input type="text" placeholder="CEP" className="p-3 border border-stone-200 text-sm bg-stone-50" value={cep} readOnly />
-                    <input type="text" placeholder="Rua" className="p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none md:col-span-2" />
-                    <input type="text" placeholder="Número" className="p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none" />
-                    <input type="text" placeholder="Bairro" className="p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none" />
-                    <input type="text" placeholder="Cidade" className="p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none" />
-                    <input type="text" placeholder="UF" className="p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-stone-50">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-1 block">CEP</label>
+                      <input type="text" placeholder="CEP" className="w-full p-3 border border-stone-200 text-sm bg-stone-50" value={cep} readOnly />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-1 block">Rua</label>
+                      <input type="text" name="rua" placeholder="Rua / Avenida" value={address.rua} onChange={handleInputChange} className="w-full p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-1 block">Número</label>
+                      <input type="text" name="numero" placeholder="Nº" value={address.numero} onChange={handleInputChange} className="w-full p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-1 block">Complemento</label>
+                      <input type="text" name="complemento" placeholder="Apto, Bloco, etc" value={address.complemento} onChange={handleInputChange} className="w-full p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-1 block">Bairro</label>
+                      <input type="text" name="bairro" placeholder="Bairro" value={address.bairro} onChange={handleInputChange} className="w-full p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-1 block">Cidade</label>
+                      <input type="text" name="cidade" placeholder="Cidade" value={address.cidade} onChange={handleInputChange} className="w-full p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 mb-1 block">UF</label>
+                      <input type="text" name="uf" placeholder="Estado (ex: SP)" value={address.uf} onChange={handleInputChange} className="w-full p-3 border border-stone-200 text-sm focus:border-brand-gold outline-none" />
+                    </div>
                   </div>
                 ) : (
-                  <div className="p-6 bg-brand-beige/20 border border-brand-beige rounded">
+                  <div className="p-6 bg-brand-beige/20 border border-brand-beige rounded mt-4">
                     <p className="text-sm font-medium mb-1">Loja Ribeirão Preto</p>
                     <p className="text-xs text-stone-500 font-light leading-relaxed">R. Barão do Amazonas, 730 – Centro. Ribeirão Preto/SP.<br/>Retirada em até 1 dia útil após confirmação.</p>
                   </div>
@@ -161,10 +251,18 @@ export const Checkout: React.FC = () => {
 
             {step === 'pagamento' && (
               <div className="space-y-6">
-                <h2 className="font-serif text-2xl mb-6 flex items-center gap-2"><CreditCard /> Pagamento</h2>
-                <div className="p-12 text-center bg-stone-50 border-2 border-dashed border-stone-200 rounded">
-                  <p className="text-stone-400 text-sm font-light">Integração com PagSeguro em breve.</p>
-                  <p className="text-[10px] text-stone-400 uppercase tracking-widest mt-2">Escolha esta opção para finalizar seu pedido no WhatsApp por enquanto.</p>
+                <h2 className="font-serif text-2xl mb-6 flex items-center gap-2"><CreditCard /> Pagamento PagBank</h2>
+                <div className="p-8 text-center bg-stone-50 border-2 border-dashed border-stone-200 rounded">
+                  <CreditCard className="mx-auto text-brand-gold mb-4" size={48} />
+                  <p className="text-brand-dark text-sm font-medium">Checkout Seguro PagBank (PagSeguro)</p>
+                  <p className="text-stone-500 text-xs font-light mt-2">Você será redirecionada para o ambiente seguro do PagBank para concluir seu pagamento via Cartão, PIX ou Boleto.</p>
+                  
+                  {checkoutError && (
+                    <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-sm flex items-center gap-3 text-red-600 text-xs text-left">
+                      <AlertCircle size={16} className="flex-shrink-0" />
+                      {checkoutError}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -176,6 +274,7 @@ export const Checkout: React.FC = () => {
                     if (step === 'pagamento') setStep('entrega');
                     else if (step === 'entrega') setStep('identificacao');
                     else if (step === 'identificacao') setStep('sacola');
+                    setCheckoutError(null);
                   }}
                   className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold text-stone-400 hover:text-brand-dark transition-colors"
                 >
@@ -188,12 +287,15 @@ export const Checkout: React.FC = () => {
                   if (step === 'sacola') setStep('identificacao');
                   else if (step === 'identificacao') setStep('entrega');
                   else if (step === 'entrega') setStep('pagamento');
-                  else alert("Pedido finalizado com sucesso!");
+                  else handleFinalizeCheckout();
                 }}
-                disabled={step === 'sacola' && !shippingData && deliveryMode === 'entrega'}
+                disabled={(step === 'sacola' && !shippingData && deliveryMode === 'entrega') || checkoutLoading}
                 className="flex items-center gap-2 bg-brand-dark text-white px-10 py-3 uppercase text-xs tracking-widest font-bold hover:bg-brand-gold transition-all shadow-md disabled:opacity-30"
               >
-                {step === 'pagamento' ? 'Finalizar Compra' : 'Continuar'} <ChevronRight size={16}/>
+                {checkoutLoading ? <RefreshCw className="animate-spin" size={16} /> : (
+                  step === 'pagamento' ? 'Fechar Compra' : 'Continuar'
+                )} 
+                {!checkoutLoading && <ChevronRight size={16}/>}
               </button>
             </div>
           </div>

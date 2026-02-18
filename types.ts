@@ -42,6 +42,7 @@ export interface Order {
   customerName: string;
   customerPhone: string;
   customerEmail: string;
+  customerCpf?: string; // Novo campo
   address: {
     cep: string;
     street: string;
