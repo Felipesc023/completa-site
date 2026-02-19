@@ -1,125 +1,163 @@
+export interface VercelRequest {
+  method?: string;
+  body: any;
+  query: { [key: string]: string | string[] };
+  cookies: { [key: string]: string };
+}
 
-/**
- * Serverless function para criação de Checkout no PagBank (PagSeguro).
- * Roda no ambiente Node.js da Vercel.
- */
-export default async function handler(req: any, res: any) {
+export interface VercelResponse {
+  status(statusCode: number): VercelResponse;
+  json(body: any): void;
+  send(body: any): void;
+}
+
+export interface PagBankItem {
+  reference_id: string;
+  name: string;
+  quantity: number;
+  unit_amount: number;
+}
+
+export interface PagBankCustomer {
+  name: string;
+  email: string;
+  tax_id: string;
+  phones: Array<{
+    country: string;
+    area: string;
+    number: string;
+    type: string;
+  }>;
+}
+
+export interface PagBankShipping {
+  amount: {
+    value: number;
+  };
+  address: {
+    street: string;
+    number: string;
+    complement?: string;
+    locality: string;
+    city: string;
+    region_code: string;
+    postal_code: string;
+  };
+}
+
+export interface PagBankOrderRequest {
+  reference_id: string;
+  customer: PagBankCustomer;
+  items: PagBankItem[];
+  shipping: PagBankShipping;
+  notification_urls?: string[];
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
   try {
-    const { items, customer, shipping, referenceId } = req.body;
+    const { reference_id, customer, items, shipping, notification_urls } = req.body as PagBankOrderRequest;
+
+    const env = process.env.PAGBANK_ENV || 'sandbox';
     const token = process.env.PAGBANK_TOKEN;
-    const env = process.env.PAGBANK_ENV || 'sandbox'; // default para sandbox
 
     if (!token) {
-      console.error("PAGBANK_TOKEN não configurado nas variáveis de ambiente.");
-      return res.status(500).json({ error: 'PAGBANK_TOKEN not configured on server' });
-    }
-
-    if (!items || items.length === 0 || !customer || !shipping) {
-      return res.status(400).json({ error: 'Missing required checkout data' });
+      return res.status(500).json({ success: false, error: 'PAGBANK_TOKEN is not defined' });
     }
 
     const baseUrl = env === 'production' 
       ? 'https://api.pagseguro.com' 
       : 'https://sandbox.api.pagseguro.com';
 
-    // Mapeamento de itens para o formato PagBank (unit_amount em centavos)
-    const pagBankItems = items.map((item: any) => ({
-      reference_id: item.id || item.productId,
-      name: `${item.name} (${item.selectedSize}/${item.selectedColor})`,
-      quantity: item.quantity,
-      unit_amount: Math.round((item.promoPrice || item.price) * 100)
-    }));
+    // Limpa o CPF (remove pontuação)
+    const cleanCpf = customer.tax_id ? customer.tax_id.replace(/\D/g, '') : '';
 
-    // Adiciona o frete como um item de encargo se houver valor
-    if (shipping.price > 0) {
-      // Nota: Em algumas versões da API de Checkout, frete pode ser passado em campos específicos.
-      // Aqui usamos a abordagem de ordem para máxima compatibilidade.
-    }
+    // Calcula automaticamente o total da order (items + shipping)
+    const itemsTotal = items.reduce((acc, item) => acc + (item.unit_amount * item.quantity), 0);
+    const shippingTotal = shipping?.amount?.value || 0;
+    const totalValue = itemsTotal + shippingTotal;
 
-    const body = {
-      reference_id: referenceId || `ORDER_${Date.now()}`,
+    const payload = {
+      reference_id,
       customer: {
         name: customer.name,
         email: customer.email,
-        tax_id: customer.tax_id.replace(/\D/g, ''), // CPF limpo
-        phones: [
-          {
-            country: "55",
-            area: customer.phone.replace(/\D/g, '').substring(0, 2),
-            number: customer.phone.replace(/\D/g, '').substring(2),
-            type: "MOBILE"
-          }
-        ]
+        tax_id: cleanCpf,
+        phones: customer.phones || []
       },
-      items: pagBankItems,
+      items: items.map(item => ({
+        reference_id: item.reference_id,
+        name: item.name,
+        quantity: item.quantity,
+        unit_amount: item.unit_amount
+      })),
       shipping: {
+        amount: {
+          currency: "BRL",
+          value: shippingTotal
+        },
         address: {
-          street: shipping.street,
-          number: shipping.number,
-          complement: shipping.complement || "",
-          locality: shipping.neighborhood,
-          city: shipping.city,
-          region_code: shipping.state,
+          street: shipping.address.street,
+          number: shipping.address.number,
+          complement: shipping.address.complement || "",
+          locality: shipping.address.locality,
+          city: shipping.address.city,
+          region_code: shipping.address.region_code,
           country: "BRA",
-          postal_code: shipping.cep.replace(/\D/g, '')
+          postal_code: shipping.address.postal_code ? shipping.address.postal_code.replace(/\D/g, '') : ''
         }
       },
-      notification_urls: [
-        `https://${req.headers.host}/api/pagbank/webhook`
-      ],
-      // Configuração para Redirect Checkout
-      payment_methods: [
-        { type: "CREDIT_CARD" },
-        { type: "BOLETO" },
-        { type: "PIX" }
-      ]
+      amount: {
+        currency: "BRL",
+        value: totalValue
+      },
+      notification_urls: notification_urls || []
     };
 
-    // Chamada para criar uma ordem com checkout
-    // Nota: O endpoint de "checkouts" específico também pode ser usado, 
-    // mas a API de Orders é o padrão moderno.
     const response = await fetch(`${baseUrl}/orders`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'accept': 'application/json'
+        'Accept': 'application/json'
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(payload)
     });
 
     const data = await response.json();
 
+    // Tratamento robusto de erro retornando o raw error da API
     if (!response.ok) {
-      console.error("Erro PagBank API:", data);
       return res.status(response.status).json({ 
-        error: 'PagBank API Error', 
-        details: data.error_messages || data 
+        success: false, 
+        error: data 
       });
     }
 
-    // Na API de Orders do PagBank, os links de pagamento/checkout vêm em links[].
-    // Procuramos o link com rel "PAY" ou similar dependendo da configuração.
-    // Para Checkouts de Redirecionamento puros, usa-se o endpoint /checkouts.
-    
-    // Fallback: Se estiver usando o endpoint /checkouts (Hosted Checkout)
-    // o retorno teria links[0].href direto.
-    
+    // Extrai o link de checkout (rel: "PAY" ou o primeiro disponível)
+    let checkoutUrl = '';
+    if (data.links && Array.isArray(data.links)) {
+      const payLink = data.links.find((link: any) => link.rel === 'PAY');
+      if (payLink) {
+        checkoutUrl = payLink.href;
+      } else if (data.links.length > 0) {
+        checkoutUrl = data.links[0].href;
+      }
+    }
+
     return res.status(200).json({
       success: true,
       orderId: data.id,
-      // Retornamos os links para o front decidir (geralmente o link de pagamento)
-      links: data.links,
-      // Em integrações simplificadas, o link de pagamento costuma ser enviado
-      checkoutUrl: data.links?.find((l: any) => l.rel === 'PAY')?.href || data.links?.[0]?.href
+      checkoutUrl
     });
 
   } catch (error: any) {
-    console.error("Checkout Server Error:", error);
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    return res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal Server Error' 
+    });
   }
 }
