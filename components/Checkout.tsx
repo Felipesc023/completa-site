@@ -52,6 +52,10 @@ export const Checkout: React.FC = () => {
     setCheckoutError(null);
     
     // Validações básicas
+    if (!address.nome && !user?.name) {
+      setCheckoutError("Nome é obrigatório.");
+      return;
+    }
     if (!address.cpf || address.cpf.replace(/\D/g, '').length !== 11) {
       setCheckoutError("CPF inválido ou não informado.");
       return;
@@ -61,17 +65,29 @@ export const Checkout: React.FC = () => {
       return;
     }
 
+    if (deliveryMode === 'entrega') {
+      if (!cep || cep.length < 8) {
+        setCheckoutError("CEP é obrigatório para entrega.");
+        return;
+      }
+      if (!address.rua || !address.numero || !address.bairro || !address.cidade || !address.uf) {
+        setCheckoutError("Preencha todos os campos de endereço para entrega.");
+        return;
+      }
+    }
+
     setCheckoutLoading(true);
     try {
       const checkoutData = {
         items,
         customer: {
           name: address.nome || user?.name || 'Cliente Completa',
-          email: user?.email || '',
+          email: user?.email || 'cliente@completa.com.br',
           phone: address.telefone,
           tax_id: address.cpf
         },
-        shipping: {
+        deliveryMethod: deliveryMode === 'entrega' ? "DELIVERY" as const : "PICKUP" as const,
+        shipping: deliveryMode === 'entrega' ? {
           price: finalShippingPrice,
           cep: cep,
           street: address.rua,
@@ -80,7 +96,7 @@ export const Checkout: React.FC = () => {
           neighborhood: address.bairro,
           city: address.cidade,
           state: address.uf
-        },
+        } : { price: 0 },
         referenceId: `COMPLETA_${Date.now()}`
       };
 

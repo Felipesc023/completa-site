@@ -11,15 +11,16 @@ export const createPagBankCheckout = async (orderData: {
     phone: string;
     tax_id: string;
   };
+  deliveryMethod: "DELIVERY" | "PICKUP";
   shipping: {
     price: number;
-    cep: string;
-    street: string;
-    number: string;
+    cep?: string;
+    street?: string;
+    number?: string;
     complement?: string;
-    neighborhood: string;
-    city: string;
-    state: string;
+    neighborhood?: string;
+    city?: string;
+    state?: string;
   };
   referenceId?: string;
 }) => {

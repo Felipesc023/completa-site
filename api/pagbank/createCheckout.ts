@@ -49,7 +49,17 @@ export interface PagBankOrderRequest {
   reference_id: string;
   customer: PagBankCustomer;
   items: PagBankItem[];
-  shipping: PagBankShipping;
+  deliveryMethod: "DELIVERY" | "PICKUP";
+  shipping?: {
+    price: number;
+    cep?: string;
+    street?: string;
+    number?: string;
+    complement?: string;
+    neighborhood?: string;
+    city?: string;
+    state?: string;
+  };
   notification_urls?: string[];
 }
 
@@ -59,7 +69,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { reference_id, customer, items, shipping, notification_urls } = req.body as PagBankOrderRequest;
+    const body = req.body as PagBankOrderRequest;
+    const { reference_id, customer, items, deliveryMethod, notification_urls } = body;
+    const shipping = body.shipping ?? null;
+
+    if (!items || items.length === 0) {
+      return res.status(400).json({ success: false, error: 'O carrinho está vazio (items faltando).' });
+    }
+
+    if (!customer || !customer.name || !customer.email || !customer.tax_id) {
+      return res.status(400).json({ success: false, error: 'Dados do cliente incompletos.' });
+    }
+
+    if (deliveryMethod === 'DELIVERY') {
+      if (!shipping) {
+        return res.status(400).json({ success: false, error: 'Dados de entrega (shipping) são obrigatórios para DELIVERY.' });
+      }
+      if (!shipping.cep || !shipping.street || !shipping.number || !shipping.neighborhood || !shipping.city || !shipping.state) {
+        return res.status(400).json({ success: false, error: 'Endereço de entrega incompleto. Verifique CEP, rua, número, bairro, cidade e estado.' });
+      }
+    }
 
     const env = process.env.PAGBANK_ENV || 'sandbox';
     const token = process.env.PAGBANK_TOKEN;
@@ -77,10 +106,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Calcula automaticamente o total da order (items + shipping)
     const itemsTotal = items.reduce((acc, item) => acc + (item.unit_amount * item.quantity), 0);
-    const shippingTotal = shipping?.amount?.value || 0;
+    const shippingTotal = shipping?.price || 0;
     const totalValue = itemsTotal + shippingTotal;
 
-    const payload = {
+    const payload: any = {
       reference_id,
       customer: {
         name: customer.name,
@@ -94,28 +123,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         quantity: item.quantity,
         unit_amount: item.unit_amount
       })),
-      shipping: {
-        amount: {
-          currency: "BRL",
-          value: shippingTotal
-        },
-        address: {
-          street: shipping.address.street,
-          number: shipping.address.number,
-          complement: shipping.address.complement || "",
-          locality: shipping.address.locality,
-          city: shipping.address.city,
-          region_code: shipping.address.region_code,
-          country: "BRA",
-          postal_code: shipping.address.postal_code ? shipping.address.postal_code.replace(/\D/g, '') : ''
-        }
-      },
       amount: {
         currency: "BRL",
         value: totalValue
       },
       notification_urls: notification_urls || []
     };
+
+    if (deliveryMethod === 'DELIVERY' && shipping) {
+      payload.shipping = {
+        amount: {
+          currency: "BRL",
+          value: shippingTotal
+        },
+        address: {
+          street: shipping.street,
+          number: shipping.number,
+          complement: shipping.complement || "",
+          locality: shipping.neighborhood,
+          city: shipping.city,
+          region_code: shipping.state,
+          country: "BRA",
+          postal_code: shipping.cep ? shipping.cep.replace(/\D/g, '') : ''
+        }
+      };
+    } else if (deliveryMethod === 'PICKUP') {
+      // Envia um endereço padrão da loja para cumprir o schema se necessário,
+      // ou apenas não envia o bloco shipping.address.
+      // O PagBank permite order sem shipping se for serviço/digital, 
+      // mas para produto físico pode exigir. Vamos enviar um endereço padrão da loja.
+      payload.shipping = {
+        amount: {
+          currency: "BRL",
+          value: 0
+        },
+        address: {
+          street: "Rua Barão do Amazonas",
+          number: "730",
+          complement: "Centro",
+          locality: "Centro",
+          city: "Ribeirão Preto",
+          region_code: "SP",
+          country: "BRA",
+          postal_code: "14010120"
+        }
+      };
+    }
 
     const response = await fetch(`${baseUrl}/orders`, {
       method: 'POST',
