@@ -44,14 +44,16 @@ export const createPagBankCheckout = async (orderData: {
     const data = await response.json();
 
     if (!response.ok) {
-      // Se o backend retornar erro (ex: 400), tentamos pegar a mensagem amigável
-      const errorMsg = typeof data.error === 'string' ? data.error : (data.error?.message || 'Erro ao processar checkout no PagBank');
+      // Retorna uma mensagem amigável sem citar o provedor
+      const errorMsg = typeof data.error === 'string' 
+        ? data.error 
+        : (data.error?.message || 'Não foi possível iniciar o pagamento. Tente novamente.');
       throw new Error(errorMsg);
     }
 
     return data;
   } catch (error: any) {
-    console.error("PagBank Service Error:", error);
+    console.error("Checkout Service Error:", error);
     throw error;
   }
 };

@@ -51,7 +51,11 @@ export const Checkout: React.FC = () => {
 
   // Validação de campos obrigatórios para habilitar o botão de fechar compra
   const isFormValid = useMemo(() => {
+    // Carrinho não pode estar vazio
+    if (items.length === 0) return false;
+
     const basicInfo = (address.nome || user?.name) && 
+                      (user?.email || 'cliente@completa.com.br') &&
                       address.telefone.replace(/\D/g, '').length >= 10 && 
                       address.cpf.replace(/\D/g, '').length === 11;
     
@@ -64,9 +68,10 @@ export const Checkout: React.FC = () => {
            address.bairro && 
            address.cidade && 
            address.uf;
-  }, [address, user, deliveryMode, cep]);
+  }, [address, user, deliveryMode, cep, items]);
 
   const handleFinalizeCheckout = async () => {
+    if (checkoutLoading) return;
     setCheckoutError(null);
     
     if (!isFormValid) {
@@ -101,7 +106,8 @@ export const Checkout: React.FC = () => {
           city: String(address.cidade),
           state: String(address.uf)
         } : { price: 0 },
-        referenceId: `COMPLETA_${Date.now()}`
+        referenceId: `COMPLETA_${Date.now()}`,
+        paymentPreference: paymentMethod // Informativo
       };
 
       const result = await createPagBankCheckout(checkoutData);
@@ -109,11 +115,11 @@ export const Checkout: React.FC = () => {
       if (result && result.checkoutUrl) {
         window.location.href = result.checkoutUrl;
       } else {
-        throw new Error("Link de pagamento não retornado pela API do PagBank.");
+        throw new Error("Não foi possível iniciar o pagamento. Tente novamente.");
       }
     } catch (err: any) {
       console.error("Erro no checkout:", err);
-      setCheckoutError(err.message || "Ocorreu um erro ao processar seu pagamento. Tente novamente.");
+      setCheckoutError(err.message || "Não foi possível iniciar o pagamento. Tente novamente.");
     } finally {
       setCheckoutLoading(false);
     }
@@ -271,16 +277,16 @@ export const Checkout: React.FC = () => {
 
             {step === 'pagamento' && (
               <div className="space-y-6">
-                <h2 className="font-serif text-2xl mb-6 flex items-center gap-2"><CreditCard /> Pagamento PagBank</h2>
+                <h2 className="font-serif text-2xl mb-6 flex items-center gap-2"><CreditCard /> Pagamento</h2>
                 
                 <div className="space-y-4 mb-8">
-                  <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 block mb-2">Selecione a forma de pagamento (informativo)</label>
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 block mb-2">Selecione a forma de pagamento</label>
                   <div className="grid grid-cols-1 gap-3">
                     <button 
                       onClick={() => setPaymentMethod('credit_card')}
                       className={`flex items-center justify-between p-4 border rounded transition-all ${paymentMethod === 'credit_card' ? 'border-brand-dark bg-brand-dark/5' : 'border-stone-100 hover:border-stone-200'}`}
                     >
-                      <span className="text-sm font-medium">Cartão (com parcelamento no PagBank)</span>
+                      <span className="text-sm font-medium">Cartão (com parcelamento)</span>
                       <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credit_card' ? 'border-brand-dark bg-brand-dark' : 'border-stone-200'}`}>
                         {paymentMethod === 'credit_card' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                       </div>
@@ -308,8 +314,8 @@ export const Checkout: React.FC = () => {
 
                 <div className="p-8 text-center bg-stone-50 border-2 border-dashed border-stone-200 rounded">
                   <CreditCard className="mx-auto text-brand-gold mb-4" size={48} />
-                  <p className="text-brand-dark text-sm font-medium">Checkout Seguro PagBank (PagSeguro)</p>
-                  <p className="text-stone-500 text-xs font-light mt-2">Você será redirecionada para o ambiente seguro do PagBank para concluir seu pagamento.</p>
+                  <p className="text-brand-dark text-sm font-medium">Checkout Seguro</p>
+                  <p className="text-stone-500 text-xs font-light mt-2">Você será redirecionada para um ambiente seguro para concluir o pagamento.</p>
                   
                   {checkoutError && (
                     <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-sm flex items-center gap-3 text-red-600 text-xs text-left">

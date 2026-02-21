@@ -66,22 +66,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 1. Validação de Itens
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ success: false, error: 'O carrinho está vazio ou inválido.' });
+      return res.status(400).json({ success: false, error: 'O carrinho está vazio ou os itens são inválidos.' });
     }
 
     // 2. Validação de Cliente
     if (!customer || !customer.name || !customer.email || !customer.tax_id) {
-      return res.status(400).json({ success: false, error: 'Dados do cliente (nome, email, CPF) são obrigatórios.' });
+      return res.status(400).json({ success: false, error: 'Dados do cliente (nome, email, CPF) são obrigatórios para prosseguir.' });
     }
 
     // 3. Validação de Entrega
     if (deliveryMethod === 'DELIVERY') {
       if (!shipping) {
-        return res.status(400).json({ success: false, error: 'Dados de entrega (shipping) são obrigatórios para o método DELIVERY.' });
+        return res.status(400).json({ success: false, error: 'Dados de entrega são obrigatórios para o método de entrega selecionado.' });
       }
       // Checagem campo a campo para evitar "Cannot read properties of undefined"
       if (!shipping.cep || !shipping.street || !shipping.number || !shipping.neighborhood || !shipping.city || !shipping.state) {
-        return res.status(400).json({ success: false, error: 'Endereço de entrega incompleto. Verifique todos os campos.' });
+        return res.status(400).json({ success: false, error: 'Endereço de entrega incompleto. Por favor, verifique todos os campos de endereço.' });
       }
     }
 
@@ -89,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const token = process.env.PAGBANK_TOKEN;
 
     if (!token) {
-      return res.status(500).json({ success: false, error: 'Configuração do servidor incompleta (PAGBANK_TOKEN).' });
+      return res.status(500).json({ success: false, error: 'Erro de configuração no servidor. Por favor, tente novamente mais tarde.' });
     }
 
     const baseUrl = env === 'production' 
