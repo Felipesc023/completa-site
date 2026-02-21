@@ -30,21 +30,6 @@ export interface PagBankCustomer {
   }>;
 }
 
-export interface PagBankShipping {
-  amount: {
-    value: number;
-  };
-  address: {
-    street: string;
-    number: string;
-    complement?: string;
-    locality: string;
-    city: string;
-    region_code: string;
-    postal_code: string;
-  };
-}
-
 export interface PagBankOrderRequest {
   reference_id: string;
   customer: PagBankCustomer;
@@ -70,23 +55,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const body = req.body as PagBankOrderRequest;
+    
+    // Validação defensiva inicial
+    if (!body) {
+      return res.status(400).json({ success: false, error: 'Corpo da requisição vazio.' });
+    }
+
     const { reference_id, customer, items, deliveryMethod, notification_urls } = body;
     const shipping = body.shipping ?? null;
 
-    if (!items || items.length === 0) {
-      return res.status(400).json({ success: false, error: 'O carrinho está vazio (items faltando).' });
+    // 1. Validação de Itens
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, error: 'O carrinho está vazio ou inválido.' });
     }
 
+    // 2. Validação de Cliente
     if (!customer || !customer.name || !customer.email || !customer.tax_id) {
-      return res.status(400).json({ success: false, error: 'Dados do cliente incompletos.' });
+      return res.status(400).json({ success: false, error: 'Dados do cliente (nome, email, CPF) são obrigatórios.' });
     }
 
+    // 3. Validação de Entrega
     if (deliveryMethod === 'DELIVERY') {
       if (!shipping) {
-        return res.status(400).json({ success: false, error: 'Dados de entrega (shipping) são obrigatórios para DELIVERY.' });
+        return res.status(400).json({ success: false, error: 'Dados de entrega (shipping) são obrigatórios para o método DELIVERY.' });
       }
+      // Checagem campo a campo para evitar "Cannot read properties of undefined"
       if (!shipping.cep || !shipping.street || !shipping.number || !shipping.neighborhood || !shipping.city || !shipping.state) {
-        return res.status(400).json({ success: false, error: 'Endereço de entrega incompleto. Verifique CEP, rua, número, bairro, cidade e estado.' });
+        return res.status(400).json({ success: false, error: 'Endereço de entrega incompleto. Verifique todos os campos.' });
       }
     }
 
@@ -94,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const token = process.env.PAGBANK_TOKEN;
 
     if (!token) {
-      return res.status(500).json({ success: false, error: 'PAGBANK_TOKEN is not defined' });
+      return res.status(500).json({ success: false, error: 'Configuração do servidor incompleta (PAGBANK_TOKEN).' });
     }
 
     const baseUrl = env === 'production' 
@@ -102,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : 'https://sandbox.api.pagseguro.com';
 
     // Limpa o CPF (remove pontuação)
-    const cleanCpf = customer.tax_id ? customer.tax_id.replace(/\D/g, '') : '';
+    const cleanCpf = customer.tax_id.replace(/\D/g, '');
 
     // Calcula automaticamente o total da order (items + shipping)
     const itemsTotal = items.reduce((acc, item) => acc + (item.unit_amount * item.quantity), 0);
@@ -110,7 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const totalValue = itemsTotal + shippingTotal;
 
     const payload: any = {
-      reference_id,
+      reference_id: reference_id || `ORDER_${Date.now()}`,
       customer: {
         name: customer.name,
         email: customer.email,
@@ -130,6 +125,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       notification_urls: notification_urls || []
     };
 
+    // Configuração do bloco Shipping no payload do PagBank
     if (deliveryMethod === 'DELIVERY' && shipping) {
       payload.shipping = {
         amount: {
@@ -147,11 +143,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           postal_code: shipping.cep ? shipping.cep.replace(/\D/g, '') : ''
         }
       };
-    } else if (deliveryMethod === 'PICKUP') {
-      // Envia um endereço padrão da loja para cumprir o schema se necessário,
-      // ou apenas não envia o bloco shipping.address.
-      // O PagBank permite order sem shipping se for serviço/digital, 
-      // mas para produto físico pode exigir. Vamos enviar um endereço padrão da loja.
+    } else {
+      // Para PICKUP ou quando não há endereço, enviamos o endereço da loja física
+      // para cumprir o schema de Order do PagBank se necessário
       payload.shipping = {
         amount: {
           currency: "BRL",
@@ -182,7 +176,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const data = await response.json();
 
-    // Tratamento robusto de erro retornando o raw error da API
     if (!response.ok) {
       return res.status(response.status).json({ 
         success: false, 
@@ -190,15 +183,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Extrai o link de checkout (rel: "PAY" ou o primeiro disponível)
+    // Extrai o link de checkout (rel: "PAY")
     let checkoutUrl = '';
     if (data.links && Array.isArray(data.links)) {
       const payLink = data.links.find((link: any) => link.rel === 'PAY');
-      if (payLink) {
-        checkoutUrl = payLink.href;
-      } else if (data.links.length > 0) {
-        checkoutUrl = data.links[0].href;
-      }
+      checkoutUrl = payLink ? payLink.href : (data.links[0]?.href || '');
     }
 
     return res.status(200).json({
@@ -208,9 +197,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
   } catch (error: any) {
+    console.error("PagBank API Error:", error);
     return res.status(500).json({ 
       success: false, 
-      error: error.message || 'Internal Server Error' 
+      error: 'Erro interno no servidor ao processar o checkout.' 
     });
   }
 }

@@ -24,6 +24,14 @@ export const createPagBankCheckout = async (orderData: {
   };
   referenceId?: string;
 }) => {
+  // Validação defensiva antes de enviar para o backend
+  if (orderData.deliveryMethod === "DELIVERY") {
+    const s = orderData.shipping;
+    if (!s.cep || !s.street || !s.number || !s.neighborhood || !s.city || !s.state) {
+      throw new Error("Preencha o endereço completo para entrega.");
+    }
+  }
+
   try {
     const response = await fetch('/api/pagbank/createCheckout', {
       method: 'POST',
@@ -36,7 +44,9 @@ export const createPagBankCheckout = async (orderData: {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Erro ao processar checkout no PagBank');
+      // Se o backend retornar erro (ex: 400), tentamos pegar a mensagem amigável
+      const errorMsg = typeof data.error === 'string' ? data.error : (data.error?.message || 'Erro ao processar checkout no PagBank');
+      throw new Error(errorMsg);
     }
 
     return data;

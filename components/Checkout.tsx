@@ -29,7 +29,7 @@ export const Checkout: React.FC = () => {
   const handleCalculateShipping = async () => {
     if (cep.length < 8) return;
     setShippingLoading(true);
-    // Mock robusto por faixa de CEP
+    // Mock de cálculo de frete
     setTimeout(() => {
       const regionPrefix = parseInt(cep.substring(0, 2));
       let basePrice = 15;
@@ -48,38 +48,40 @@ export const Checkout: React.FC = () => {
   const finalShippingPrice = deliveryMode === 'retirada' ? 0 : (shippingData?.price || 0);
   const finalTotal = cartTotal + finalShippingPrice;
 
+  // Validação de campos obrigatórios para habilitar o botão de fechar compra
+  const isFormValid = useMemo(() => {
+    const basicInfo = (address.nome || user?.name) && 
+                      address.telefone.replace(/\D/g, '').length >= 10 && 
+                      address.cpf.replace(/\D/g, '').length === 11;
+    
+    if (deliveryMode === 'retirada') return basicInfo;
+    
+    return basicInfo && 
+           cep.length === 8 && 
+           address.rua && 
+           address.numero && 
+           address.bairro && 
+           address.cidade && 
+           address.uf;
+  }, [address, user, deliveryMode, cep]);
+
   const handleFinalizeCheckout = async () => {
     setCheckoutError(null);
     
-    // Validações básicas
-    if (!address.nome && !user?.name) {
-      setCheckoutError("Nome é obrigatório.");
+    if (!isFormValid) {
+      setCheckoutError("Por favor, preencha todos os campos obrigatórios.");
       return;
-    }
-    if (!address.cpf || address.cpf.replace(/\D/g, '').length !== 11) {
-      setCheckoutError("CPF inválido ou não informado.");
-      return;
-    }
-    if (!address.telefone || address.telefone.replace(/\D/g, '').length < 10) {
-      setCheckoutError("Telefone inválido ou não informado.");
-      return;
-    }
-
-    if (deliveryMode === 'entrega') {
-      if (!cep || cep.length < 8) {
-        setCheckoutError("CEP é obrigatório para entrega.");
-        return;
-      }
-      if (!address.rua || !address.numero || !address.bairro || !address.cidade || !address.uf) {
-        setCheckoutError("Preencha todos os campos de endereço para entrega.");
-        return;
-      }
     }
 
     setCheckoutLoading(true);
     try {
       const checkoutData = {
-        items,
+        items: items.map(item => ({
+          reference_id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          unit_amount: Math.round((item.promoPrice || item.price) * 100) // Centavos
+        })),
         customer: {
           name: address.nome || user?.name || 'Cliente Completa',
           email: user?.email || 'cliente@completa.com.br',
@@ -88,7 +90,7 @@ export const Checkout: React.FC = () => {
         },
         deliveryMethod: deliveryMode === 'entrega' ? "DELIVERY" as const : "PICKUP" as const,
         shipping: deliveryMode === 'entrega' ? {
-          price: finalShippingPrice,
+          price: Math.round(finalShippingPrice * 100), // Centavos
           cep: cep,
           street: address.rua,
           number: address.numero,
@@ -103,7 +105,6 @@ export const Checkout: React.FC = () => {
       const result = await createPagBankCheckout(checkoutData);
       
       if (result.checkoutUrl) {
-        // Redireciona para o link de pagamento do PagBank
         window.location.href = result.checkoutUrl;
       } else {
         throw new Error("Link de pagamento não retornado pela API.");
@@ -305,7 +306,7 @@ export const Checkout: React.FC = () => {
                   else if (step === 'entrega') setStep('pagamento');
                   else handleFinalizeCheckout();
                 }}
-                disabled={(step === 'sacola' && !shippingData && deliveryMode === 'entrega') || checkoutLoading}
+                disabled={checkoutLoading || (step === 'pagamento' && !isFormValid)}
                 className="flex items-center gap-2 bg-brand-dark text-white px-10 py-3 uppercase text-xs tracking-widest font-bold hover:bg-brand-gold transition-all shadow-md disabled:opacity-30"
               >
                 {checkoutLoading ? <RefreshCw className="animate-spin" size={16} /> : (
