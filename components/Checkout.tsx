@@ -132,8 +132,10 @@ export const Checkout: React.FC = () => {
             expiration: result.expiration || ''
           });
         } else if (result.checkoutUrl) {
-          // Redireciona para o checkout (Cartão ou Boleto)
-          window.location.href = result.checkoutUrl;
+          // Abre o checkout em nova aba (Cartão ou Boleto)
+          window.open(result.checkoutUrl, "_blank");
+          // Opcionalmente, podemos redirecionar a página atual para uma de "Obrigado" ou manter aqui
+          setCheckoutError("Link de pagamento aberto em nova aba. Conclua o pagamento por lá.");
         } else {
           throw new Error("Não foi possível iniciar o pagamento. Tente novamente.");
         }

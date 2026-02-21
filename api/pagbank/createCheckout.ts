@@ -214,7 +214,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Extrai dados do PIX
       const pixInfo = chargeData.payment_method?.pix;
-      const qrCode = chargeData.links?.find((l: any) => l.media === 'image/png')?.href;
+      const qrCodeLink = chargeData.links?.find((l: any) => l.media === 'image/png' || l.rel === 'QRCODE')?.href;
       const pixCode = pixInfo?.qrcode;
       const expiration = pixInfo?.expiration_date;
 
@@ -223,7 +223,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         orderId: orderData.id,
         paymentType: 'PIX',
         pixCode,
-        qrCodeBase64: qrCode, // O PagBank retorna link ou base64 dependendo da config, mas aqui tratamos como o que vier
+        qrCodeBase64: qrCodeLink, // Retornamos o link do QR Code
         expiration
       });
     }
