@@ -122,6 +122,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         currency: "BRL",
         value: totalValue
       },
+      payment_methods: [
+        { type: "CREDIT_CARD" },
+        { type: "PIX" },
+        { type: "BOLETO" }
+      ],
       notification_urls: notification_urls || []
     };
 
@@ -145,7 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
     } else {
       // Para PICKUP ou quando não há endereço, enviamos o endereço da loja física
-      // para cumprir o schema de Order do PagBank se necessário
+      // para cumprir o schema de Order do PagBank
       payload.shipping = {
         amount: {
           currency: "BRL",

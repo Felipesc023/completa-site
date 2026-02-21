@@ -20,6 +20,7 @@ export const Checkout: React.FC = () => {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   
   const [deliveryMode, setDeliveryMode] = useState<'entrega' | 'retirada'>('entrega');
+  const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'pix' | 'boleto'>('credit_card');
   const [address, setAddress] = useState({
     nome: '', telefone: '', cpf: '', rua: '', numero: '', complemento: '', bairro: '', cidade: '', uf: ''
   });
@@ -75,41 +76,43 @@ export const Checkout: React.FC = () => {
 
     setCheckoutLoading(true);
     try {
+      // Criamos um payload limpo para evitar erros de estrutura circular
       const checkoutData = {
         items: items.map(item => ({
-          reference_id: item.id,
-          name: item.name,
-          quantity: item.quantity,
-          unit_amount: Math.round((item.promoPrice || item.price) * 100) // Centavos
+          reference_id: String(item.id),
+          name: String(item.name),
+          quantity: Number(item.quantity),
+          unit_amount: Math.round((Number(item.promoPrice || item.price)) * 100) // Centavos
         })),
         customer: {
-          name: address.nome || user?.name || 'Cliente Completa',
-          email: user?.email || 'cliente@completa.com.br',
-          phone: address.telefone,
-          tax_id: address.cpf
+          name: String(address.nome || user?.name || 'Cliente Completa'),
+          email: String(user?.email || 'cliente@completa.com.br'),
+          phone: String(address.telefone),
+          tax_id: String(address.cpf).replace(/\D/g, '')
         },
         deliveryMethod: deliveryMode === 'entrega' ? "DELIVERY" as const : "PICKUP" as const,
         shipping: deliveryMode === 'entrega' ? {
           price: Math.round(finalShippingPrice * 100), // Centavos
-          cep: cep,
-          street: address.rua,
-          number: address.numero,
-          complement: address.complemento,
-          neighborhood: address.bairro,
-          city: address.cidade,
-          state: address.uf
+          cep: String(cep),
+          street: String(address.rua),
+          number: String(address.numero),
+          complement: String(address.complemento || ""),
+          neighborhood: String(address.bairro),
+          city: String(address.cidade),
+          state: String(address.uf)
         } : { price: 0 },
         referenceId: `COMPLETA_${Date.now()}`
       };
 
       const result = await createPagBankCheckout(checkoutData);
       
-      if (result.checkoutUrl) {
+      if (result && result.checkoutUrl) {
         window.location.href = result.checkoutUrl;
       } else {
-        throw new Error("Link de pagamento não retornado pela API.");
+        throw new Error("Link de pagamento não retornado pela API do PagBank.");
       }
     } catch (err: any) {
+      console.error("Erro no checkout:", err);
       setCheckoutError(err.message || "Ocorreu um erro ao processar seu pagamento. Tente novamente.");
     } finally {
       setCheckoutLoading(false);
@@ -269,10 +272,44 @@ export const Checkout: React.FC = () => {
             {step === 'pagamento' && (
               <div className="space-y-6">
                 <h2 className="font-serif text-2xl mb-6 flex items-center gap-2"><CreditCard /> Pagamento PagBank</h2>
+                
+                <div className="space-y-4 mb-8">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 block mb-2">Selecione a forma de pagamento (informativo)</label>
+                  <div className="grid grid-cols-1 gap-3">
+                    <button 
+                      onClick={() => setPaymentMethod('credit_card')}
+                      className={`flex items-center justify-between p-4 border rounded transition-all ${paymentMethod === 'credit_card' ? 'border-brand-dark bg-brand-dark/5' : 'border-stone-100 hover:border-stone-200'}`}
+                    >
+                      <span className="text-sm font-medium">Cartão (com parcelamento no PagBank)</span>
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credit_card' ? 'border-brand-dark bg-brand-dark' : 'border-stone-200'}`}>
+                        {paymentMethod === 'credit_card' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                    </button>
+                    <button 
+                      onClick={() => setPaymentMethod('pix')}
+                      className={`flex items-center justify-between p-4 border rounded transition-all ${paymentMethod === 'pix' ? 'border-brand-dark bg-brand-dark/5' : 'border-stone-100 hover:border-stone-200'}`}
+                    >
+                      <span className="text-sm font-medium">PIX</span>
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'pix' ? 'border-brand-dark bg-brand-dark' : 'border-stone-200'}`}>
+                        {paymentMethod === 'pix' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                    </button>
+                    <button 
+                      onClick={() => setPaymentMethod('boleto')}
+                      className={`flex items-center justify-between p-4 border rounded transition-all ${paymentMethod === 'boleto' ? 'border-brand-dark bg-brand-dark/5' : 'border-stone-100 hover:border-stone-200'}`}
+                    >
+                      <span className="text-sm font-medium">Boleto</span>
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'boleto' ? 'border-brand-dark bg-brand-dark' : 'border-stone-200'}`}>
+                        {paymentMethod === 'boleto' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="p-8 text-center bg-stone-50 border-2 border-dashed border-stone-200 rounded">
                   <CreditCard className="mx-auto text-brand-gold mb-4" size={48} />
                   <p className="text-brand-dark text-sm font-medium">Checkout Seguro PagBank (PagSeguro)</p>
-                  <p className="text-stone-500 text-xs font-light mt-2">Você será redirecionada para o ambiente seguro do PagBank para concluir seu pagamento via Cartão, PIX ou Boleto.</p>
+                  <p className="text-stone-500 text-xs font-light mt-2">Você será redirecionada para o ambiente seguro do PagBank para concluir seu pagamento.</p>
                   
                   {checkoutError && (
                     <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-sm flex items-center gap-3 text-red-600 text-xs text-left">

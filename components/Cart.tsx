@@ -33,7 +33,14 @@ export const Cart: React.FC = () => {
             name: user?.name,
             email: user?.email,
           },
-          items,
+          items: items.map(i => ({
+            id: i.id,
+            name: i.name,
+            quantity: i.quantity,
+            price: i.promoPrice || i.price,
+            selectedSize: i.selectedSize,
+            selectedColor: i.selectedColor
+          })),
           shipping: shippingResult,
           total: cartTotal + (shippingResult?.price || 0)
         })

@@ -29,7 +29,20 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    localStorage.setItem('completa_cart', JSON.stringify(items));
+    // Sanitização para evitar erros de estrutura circular ao salvar no localStorage
+    const sanitizedItems = items.map(item => ({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      promoPrice: item.promoPrice,
+      imageUrl: item.imageUrl,
+      selectedSize: item.selectedSize,
+      selectedColor: item.selectedColor,
+      quantity: item.quantity,
+      weightKg: item.weightKg,
+      // Adicione outros campos necessários, mas evite objetos complexos
+    }));
+    localStorage.setItem('completa_cart', JSON.stringify(sanitizedItems));
   }, [items]);
 
   const showToast = (msg: string) => {
@@ -38,9 +51,20 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const addToCart = (product: Product, size: string, color: string, quantity: number = 1) => {
+    // Sanitize product to ensure no circular references or complex objects enter the cart state
+    const sanitizedProduct: CartItem = {
+      ...product,
+      // Ensure dates are strings and not complex objects
+      createdAt: typeof product.createdAt === 'object' && product.createdAt?.toDate ? product.createdAt.toDate().toISOString() : String(product.createdAt || ''),
+      updatedAt: typeof product.updatedAt === 'object' && product.updatedAt?.toDate ? product.updatedAt.toDate().toISOString() : String(product.updatedAt || ''),
+      quantity,
+      selectedSize: size,
+      selectedColor: color
+    };
+
     setItems(prev => {
       const existing = prev.find(item => 
-        item.id === product.id && 
+        item.id === sanitizedProduct.id && 
         item.selectedSize === size && 
         item.selectedColor === color
       );
@@ -48,14 +72,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (existing) {
         showToast("Quantidade atualizada na sacola");
         return prev.map(item => 
-          (item.id === product.id && item.selectedSize === size && item.selectedColor === color)
+          (item.id === sanitizedProduct.id && item.selectedSize === size && item.selectedColor === color)
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       }
       
       setIsCartOpen(true);
-      return [...prev, { ...product, quantity, selectedSize: size, selectedColor: color }];
+      return [...prev, sanitizedProduct];
     });
   };
 
