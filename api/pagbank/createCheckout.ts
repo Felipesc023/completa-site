@@ -188,11 +188,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Extrai o link de checkout (rel: "PAY")
+    // Extrai o link de checkout
     let checkoutUrl = '';
+    console.log("PagBank links:", data.links);
+    
     if (data.links && Array.isArray(data.links)) {
-      const payLink = data.links.find((link: any) => link.rel === 'PAY');
-      checkoutUrl = payLink ? payLink.href : (data.links[0]?.href || '');
+      const payLink = 
+        data.links.find((link: any) => link.rel === 'PAY') || 
+        data.links.find((link: any) => link.rel === 'CHECKOUT') ||
+        data.links[0];
+        
+      checkoutUrl = payLink ? payLink.href : '';
+    }
+
+    if (!checkoutUrl) {
+      return res.status(500).json({
+        success: false,
+        error: 'Não foi possível gerar o link de pagamento. Por favor, tente novamente.'
+      });
     }
 
     return res.status(200).json({

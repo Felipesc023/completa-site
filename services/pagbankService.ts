@@ -43,7 +43,7 @@ export const createPagBankCheckout = async (orderData: {
 
     const data = await response.json();
 
-    if (!response.ok) {
+    if (!response.ok || data.success === false) {
       // Retorna uma mensagem amigável sem citar o provedor
       const errorMsg = typeof data.error === 'string' 
         ? data.error 
@@ -51,7 +51,11 @@ export const createPagBankCheckout = async (orderData: {
       throw new Error(errorMsg);
     }
 
-    return data;
+    return {
+      success: data.success ?? true,
+      checkoutUrl: data.checkoutUrl,
+      orderId: data.orderId
+    };
   } catch (error: any) {
     console.error("Checkout Service Error:", error);
     throw error;

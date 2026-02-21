@@ -54,20 +54,25 @@ export const Checkout: React.FC = () => {
     // Carrinho não pode estar vazio
     if (items.length === 0) return false;
 
-    const basicInfo = (address.nome || user?.name) && 
-                      (user?.email || 'cliente@completa.com.br') &&
-                      address.telefone.replace(/\D/g, '').length >= 10 && 
-                      address.cpf.replace(/\D/g, '').length === 11;
+    // Dados básicos do cliente (sempre exigidos)
+    const hasName = !!(address.nome || user?.name);
+    const hasEmail = !!(user?.email || 'cliente@completa.com.br');
+    const hasPhone = address.telefone.replace(/\D/g, '').length >= 10;
+    const hasCpf = address.cpf.replace(/\D/g, '').length === 11;
+
+    const basicInfo = hasName && hasEmail && hasPhone && hasCpf;
     
+    // Se for retirada, apenas basicInfo é necessário
     if (deliveryMode === 'retirada') return basicInfo;
     
+    // Se for entrega, exige endereço completo
     return basicInfo && 
            cep.length === 8 && 
-           address.rua && 
-           address.numero && 
-           address.bairro && 
-           address.cidade && 
-           address.uf;
+           !!address.rua && 
+           !!address.numero && 
+           !!address.bairro && 
+           !!address.cidade && 
+           !!address.uf;
   }, [address, user, deliveryMode, cep, items]);
 
   const handleFinalizeCheckout = async () => {
@@ -112,7 +117,8 @@ export const Checkout: React.FC = () => {
 
       const result = await createPagBankCheckout(checkoutData);
       
-      if (result && result.checkoutUrl) {
+      if (result && result.success && result.checkoutUrl) {
+        // Redireciona para o checkout
         window.location.href = result.checkoutUrl;
       } else {
         throw new Error("Não foi possível iniciar o pagamento. Tente novamente.");
