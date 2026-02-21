@@ -1,11 +1,17 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, MapPin, User as UserIcon, CreditCard, ChevronLeft, ChevronRight, RefreshCw, Minus, Plus, AlertCircle } from 'lucide-react';
+import { ShoppingBag, MapPin, User as UserIcon, CreditCard, ChevronLeft, ChevronRight, RefreshCw, Minus, Plus, AlertCircle, Copy, CheckCircle2, Clock } from 'lucide-react';
 import { createPagBankCheckout } from '../services/pagbankService';
 
 type Step = 'sacola' | 'identificacao' | 'entrega' | 'pagamento';
+
+interface PixData {
+  pixCode: string;
+  qrCodeBase64: string;
+  expiration: string;
+}
 
 export const Checkout: React.FC = () => {
   const { items, cartTotal, updateCartItemQuantity, removeFromCart } = useCart();
@@ -18,6 +24,7 @@ export const Checkout: React.FC = () => {
   const [shippingLoading, setShippingLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [pixData, setPixData] = useState<PixData | null>(null);
   
   const [deliveryMode, setDeliveryMode] = useState<'entrega' | 'retirada'>('entrega');
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'pix' | 'boleto'>('credit_card');
@@ -117,9 +124,19 @@ export const Checkout: React.FC = () => {
 
       const result = await createPagBankCheckout(checkoutData);
       
-      if (result && result.success && result.checkoutUrl) {
-        // Redireciona para o checkout
-        window.location.href = result.checkoutUrl;
+      if (result && result.success) {
+        if (result.paymentType === 'PIX' && result.pixCode) {
+          setPixData({
+            pixCode: result.pixCode,
+            qrCodeBase64: result.qrCodeBase64 || '',
+            expiration: result.expiration || ''
+          });
+        } else if (result.checkoutUrl) {
+          // Redireciona para o checkout (Cartão ou Boleto)
+          window.location.href = result.checkoutUrl;
+        } else {
+          throw new Error("Não foi possível iniciar o pagamento. Tente novamente.");
+        }
       } else {
         throw new Error("Não foi possível iniciar o pagamento. Tente novamente.");
       }
@@ -285,56 +302,62 @@ export const Checkout: React.FC = () => {
               <div className="space-y-6">
                 <h2 className="font-serif text-2xl mb-6 flex items-center gap-2"><CreditCard /> Pagamento</h2>
                 
-                <div className="space-y-4 mb-8">
-                  <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 block mb-2">Selecione a forma de pagamento</label>
-                  <div className="grid grid-cols-1 gap-3">
-                    <button 
-                      onClick={() => setPaymentMethod('credit_card')}
-                      className={`flex items-center justify-between p-4 border rounded transition-all ${paymentMethod === 'credit_card' ? 'border-brand-dark bg-brand-dark/5' : 'border-stone-100 hover:border-stone-200'}`}
-                    >
-                      <span className="text-sm font-medium">Cartão (com parcelamento)</span>
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credit_card' ? 'border-brand-dark bg-brand-dark' : 'border-stone-200'}`}>
-                        {paymentMethod === 'credit_card' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                {pixData ? (
+                  <PixPaymentView pixData={pixData} total={finalTotal} />
+                ) : (
+                  <>
+                    <div className="space-y-4 mb-8">
+                      <label className="text-[10px] uppercase font-bold tracking-widest text-stone-400 block mb-2">Selecione a forma de pagamento</label>
+                      <div className="grid grid-cols-1 gap-3">
+                        <button 
+                          onClick={() => setPaymentMethod('credit_card')}
+                          className={`flex items-center justify-between p-4 border rounded transition-all ${paymentMethod === 'credit_card' ? 'border-brand-dark bg-brand-dark/5' : 'border-stone-100 hover:border-stone-200'}`}
+                        >
+                          <span className="text-sm font-medium">Cartão (com parcelamento)</span>
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credit_card' ? 'border-brand-dark bg-brand-dark' : 'border-stone-200'}`}>
+                            {paymentMethod === 'credit_card' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </div>
+                        </button>
+                        <button 
+                          onClick={() => setPaymentMethod('pix')}
+                          className={`flex items-center justify-between p-4 border rounded transition-all ${paymentMethod === 'pix' ? 'border-brand-dark bg-brand-dark/5' : 'border-stone-100 hover:border-stone-200'}`}
+                        >
+                          <span className="text-sm font-medium">PIX Direto</span>
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'pix' ? 'border-brand-dark bg-brand-dark' : 'border-stone-200'}`}>
+                            {paymentMethod === 'pix' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </div>
+                        </button>
+                        <button 
+                          onClick={() => setPaymentMethod('boleto')}
+                          className={`flex items-center justify-between p-4 border rounded transition-all ${paymentMethod === 'boleto' ? 'border-brand-dark bg-brand-dark/5' : 'border-stone-100 hover:border-stone-200'}`}
+                        >
+                          <span className="text-sm font-medium">Boleto</span>
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'boleto' ? 'border-brand-dark bg-brand-dark' : 'border-stone-200'}`}>
+                            {paymentMethod === 'boleto' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </div>
+                        </button>
                       </div>
-                    </button>
-                    <button 
-                      onClick={() => setPaymentMethod('pix')}
-                      className={`flex items-center justify-between p-4 border rounded transition-all ${paymentMethod === 'pix' ? 'border-brand-dark bg-brand-dark/5' : 'border-stone-100 hover:border-stone-200'}`}
-                    >
-                      <span className="text-sm font-medium">PIX</span>
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'pix' ? 'border-brand-dark bg-brand-dark' : 'border-stone-200'}`}>
-                        {paymentMethod === 'pix' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                      </div>
-                    </button>
-                    <button 
-                      onClick={() => setPaymentMethod('boleto')}
-                      className={`flex items-center justify-between p-4 border rounded transition-all ${paymentMethod === 'boleto' ? 'border-brand-dark bg-brand-dark/5' : 'border-stone-100 hover:border-stone-200'}`}
-                    >
-                      <span className="text-sm font-medium">Boleto</span>
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'boleto' ? 'border-brand-dark bg-brand-dark' : 'border-stone-200'}`}>
-                        {paymentMethod === 'boleto' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-8 text-center bg-stone-50 border-2 border-dashed border-stone-200 rounded">
-                  <CreditCard className="mx-auto text-brand-gold mb-4" size={48} />
-                  <p className="text-brand-dark text-sm font-medium">Checkout Seguro</p>
-                  <p className="text-stone-500 text-xs font-light mt-2">Você será redirecionada para um ambiente seguro para concluir o pagamento.</p>
-                  
-                  {checkoutError && (
-                    <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-sm flex items-center gap-3 text-red-600 text-xs text-left">
-                      <AlertCircle size={16} className="flex-shrink-0" />
-                      {checkoutError}
                     </div>
-                  )}
-                </div>
+
+                    <div className="p-8 text-center bg-stone-50 border-2 border-dashed border-stone-200 rounded">
+                      <CreditCard className="mx-auto text-brand-gold mb-4" size={48} />
+                      <p className="text-brand-dark text-sm font-medium">Checkout Seguro</p>
+                      <p className="text-stone-500 text-xs font-light mt-2">Você será redirecionada para um ambiente seguro para concluir o pagamento.</p>
+                      
+                      {checkoutError && (
+                        <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-sm flex items-center gap-3 text-red-600 text-xs text-left">
+                          <AlertCircle size={16} className="flex-shrink-0" />
+                          {checkoutError}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
             <div className="flex justify-between mt-12 pt-8 border-t border-stone-100">
-              {step !== 'sacola' ? (
+              {step !== 'sacola' && !pixData ? (
                 <button 
                   onClick={() => {
                     if (step === 'pagamento') setStep('entrega');
@@ -348,21 +371,23 @@ export const Checkout: React.FC = () => {
                 </button>
               ) : <div></div>}
 
-              <button 
-                onClick={() => {
-                  if (step === 'sacola') setStep('identificacao');
-                  else if (step === 'identificacao') setStep('entrega');
-                  else if (step === 'entrega') setStep('pagamento');
-                  else handleFinalizeCheckout();
-                }}
-                disabled={checkoutLoading || (step === 'pagamento' && !isFormValid)}
-                className="flex items-center gap-2 bg-brand-dark text-white px-10 py-3 uppercase text-xs tracking-widest font-bold hover:bg-brand-gold transition-all shadow-md disabled:opacity-30"
-              >
-                {checkoutLoading ? <RefreshCw className="animate-spin" size={16} /> : (
-                  step === 'pagamento' ? 'Fechar Compra' : 'Continuar'
-                )} 
-                {!checkoutLoading && <ChevronRight size={16}/>}
-              </button>
+              {!pixData && (
+                <button 
+                  onClick={() => {
+                    if (step === 'sacola') setStep('identificacao');
+                    else if (step === 'identificacao') setStep('entrega');
+                    else if (step === 'entrega') setStep('pagamento');
+                    else handleFinalizeCheckout();
+                  }}
+                  disabled={checkoutLoading || (step === 'pagamento' && !isFormValid)}
+                  className="flex items-center gap-2 bg-brand-dark text-white px-10 py-3 uppercase text-xs tracking-widest font-bold hover:bg-brand-gold transition-all shadow-md disabled:opacity-30"
+                >
+                  {checkoutLoading ? <RefreshCw className="animate-spin" size={16} /> : (
+                    step === 'pagamento' ? 'Fechar Compra' : 'Continuar'
+                  )} 
+                  {!checkoutLoading && <ChevronRight size={16}/>}
+                </button>
+              )}
             </div>
           </div>
 
@@ -386,6 +411,86 @@ export const Checkout: React.FC = () => {
             </div>
           </div>
 
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PixPaymentView: React.FC<{ pixData: PixData; total: number }> = ({ pixData, total }) => {
+  const [copied, setCopied] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(1800); // 30 minutos em segundos
+
+  useEffect(() => {
+    if (timeLeft <= 0) return;
+    const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+    return () => clearInterval(timer);
+  }, [timeLeft]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(pixData.pixCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-lg border border-stone-100 space-y-6 text-center">
+      <div className="space-y-2">
+        <h3 className="text-lg font-serif text-brand-dark">Pagamento via PIX</h3>
+        <p className="text-xs text-stone-500 font-light">Escaneie o QR Code ou copie o código abaixo</p>
+      </div>
+
+      <div className="flex justify-center">
+        <div className="p-4 bg-white border border-stone-100 rounded-xl shadow-sm">
+          {pixData.qrCodeBase64 ? (
+            <img src={pixData.qrCodeBase64} alt="QR Code PIX" className="w-48 h-48" />
+          ) : (
+            <div className="w-48 h-48 bg-stone-50 flex items-center justify-center text-stone-300">
+              QR Code Indisponível
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-center gap-2 text-brand-gold">
+          <Clock size={16} />
+          <span className="text-sm font-bold">Expira em: {formatTime(timeLeft)}</span>
+        </div>
+
+        <div className="relative">
+          <input 
+            type="text" 
+            readOnly 
+            value={pixData.pixCode} 
+            className="w-full p-4 bg-stone-50 border border-stone-200 rounded text-[10px] font-mono pr-12 focus:outline-none"
+          />
+          <button 
+            onClick={handleCopy}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-stone-400 hover:text-brand-dark transition-colors"
+          >
+            {copied ? <CheckCircle2 size={20} className="text-green-500" /> : <Copy size={20} />}
+          </button>
+        </div>
+
+        <button 
+          onClick={handleCopy}
+          className="w-full py-4 bg-brand-dark text-white rounded font-bold text-xs uppercase tracking-widest hover:bg-brand-gold transition-all flex items-center justify-center gap-2"
+        >
+          {copied ? 'Código Copiado!' : 'Copiar Código PIX'}
+        </button>
+      </div>
+
+      <div className="pt-4 border-t border-stone-50">
+        <div className="flex items-center justify-center gap-2 text-stone-400 text-[10px] uppercase font-bold tracking-widest">
+          <AlertCircle size={14} />
+          <span>O pedido será processado após a confirmação</span>
         </div>
       </div>
     </div>

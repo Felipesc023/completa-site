@@ -12,6 +12,7 @@ export const createPagBankCheckout = async (orderData: {
     tax_id: string;
   };
   deliveryMethod: "DELIVERY" | "PICKUP";
+  paymentPreference?: 'credit_card' | 'pix' | 'boleto';
   shipping: {
     price: number;
     cep?: string;
@@ -54,7 +55,11 @@ export const createPagBankCheckout = async (orderData: {
     return {
       success: data.success ?? true,
       checkoutUrl: data.checkoutUrl,
-      orderId: data.orderId
+      orderId: data.orderId,
+      paymentType: data.paymentType,
+      pixCode: data.pixCode,
+      qrCodeBase64: data.qrCodeBase64,
+      expiration: data.expiration
     };
   } catch (error: any) {
     console.error("Checkout Service Error:", error);

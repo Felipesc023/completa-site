@@ -35,6 +35,7 @@ export interface PagBankOrderRequest {
   customer: PagBankCustomer;
   items: PagBankItem[];
   deliveryMethod: "DELIVERY" | "PICKUP";
+  paymentPreference?: 'credit_card' | 'pix' | 'boleto';
   shipping?: {
     price: number;
     cep?: string;
@@ -61,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ success: false, error: 'Corpo da requisição vazio.' });
     }
 
-    const { reference_id, customer, items, deliveryMethod, notification_urls } = body;
+    const { reference_id, customer, items, deliveryMethod, notification_urls, paymentPreference } = body;
     const shipping = body.shipping ?? null;
 
     // 1. Validação de Itens
@@ -122,13 +123,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         currency: "BRL",
         value: totalValue
       },
-      payment_methods: [
-        { type: "CREDIT_CARD" },
-        { type: "PIX" },
-        { type: "BOLETO" }
-      ],
       notification_urls: notification_urls || []
     };
+
+    // Se NÃO for PIX, usamos Hosted Checkout (payment_methods no Order)
+    if (paymentPreference !== 'pix') {
+      payload.payment_methods = [
+        { type: "CREDIT_CARD" },
+        { type: "BOLETO" }
+      ];
+    }
 
     // Configuração do bloco Shipping no payload do PagBank
     if (deliveryMethod === 'DELIVERY' && shipping) {
@@ -149,13 +153,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       };
     } else {
-      // Para PICKUP ou quando não há endereço, enviamos o endereço da loja física
-      // para cumprir o schema de Order do PagBank
       payload.shipping = {
-        amount: {
-          currency: "BRL",
-          value: 0
-        },
+        amount: { currency: "BRL", value: 0 },
         address: {
           street: "Rua Barão do Amazonas",
           number: "730",
@@ -169,7 +168,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
     }
 
-    const response = await fetch(`${baseUrl}/orders`, {
+    // 1. Criar a Order
+    const orderResponse = await fetch(`${baseUrl}/orders`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -179,24 +179,62 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: JSON.stringify(payload)
     });
 
-    const data = await response.json();
+    const orderData = await orderResponse.json();
 
-    if (!response.ok) {
-      return res.status(response.status).json({ 
-        success: false, 
-        error: data 
+    if (!orderResponse.ok) {
+      return res.status(orderResponse.status).json({ success: false, error: orderData });
+    }
+
+    // 2. Se for PIX, criar a Charge
+    if (paymentPreference === 'pix') {
+      const chargePayload = {
+        payment_method: {
+          type: "PIX",
+          pix: {
+            expires_in: 1800 // 30 minutos
+          }
+        }
+      };
+
+      const chargeResponse = await fetch(`${baseUrl}/orders/${orderData.id}/charges`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(chargePayload)
+      });
+
+      const chargeData = await chargeResponse.json();
+
+      if (!chargeResponse.ok) {
+        return res.status(chargeResponse.status).json({ success: false, error: chargeData });
+      }
+
+      // Extrai dados do PIX
+      const pixInfo = chargeData.payment_method?.pix;
+      const qrCode = chargeData.links?.find((l: any) => l.media === 'image/png')?.href;
+      const pixCode = pixInfo?.qrcode;
+      const expiration = pixInfo?.expiration_date;
+
+      return res.status(200).json({
+        success: true,
+        orderId: orderData.id,
+        paymentType: 'PIX',
+        pixCode,
+        qrCodeBase64: qrCode, // O PagBank retorna link ou base64 dependendo da config, mas aqui tratamos como o que vier
+        expiration
       });
     }
 
-    // Extrai o link de checkout
+    // 3. Se for Cartão ou Boleto, extrair checkoutUrl (Hosted Checkout)
     let checkoutUrl = '';
-    console.log("PagBank links:", data.links);
-    
-    if (data.links && Array.isArray(data.links)) {
+    if (orderData.links && Array.isArray(orderData.links)) {
       const payLink = 
-        data.links.find((link: any) => link.rel === 'PAY') || 
-        data.links.find((link: any) => link.rel === 'CHECKOUT') ||
-        data.links[0];
+        orderData.links.find((link: any) => link.rel === 'PAY') || 
+        orderData.links.find((link: any) => link.rel === 'CHECKOUT') ||
+        orderData.links[0];
         
       checkoutUrl = payLink ? payLink.href : '';
     }
@@ -210,7 +248,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({
       success: true,
-      orderId: data.id,
+      orderId: orderData.id,
       checkoutUrl
     });
 
