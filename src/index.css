@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-brand: #c97055;
+    --color-brand-dark: #8f4432;
+    --color-text: #292524;
+    --color-text-muted: #78716c;
+    --color-border: #e7e5e4;
+    --color-bg: #fafaf9;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-neutral-50 text-neutral-800 font-sans antialiased;
+    font-size: 15px;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+
+  /* Scrollbar discreta */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-neutral-100;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-neutral-300 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-neutral-400;
+  }
+
+  /* Seleção de texto com cor da marca */
+  ::selection {
+    background-color: #f2d5cb;
+    color: #5e2e23;
+  }
+
+  /* Remove outline feio, mantém acessibilidade */
+  *:focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-500;
+  }
+}
+
+@layer components {
+  /* Botão primário padrão da loja */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-neutral-900 text-white text-sm font-sans font-medium tracking-wide
+           px-6 py-3.5 
+           transition-all duration-200
+           hover:bg-neutral-800 active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-transparent text-neutral-900 text-sm font-sans font-medium tracking-wide
+           px-6 py-3.5 border border-neutral-900
+           transition-all duration-200
+           hover:bg-neutral-900 hover:text-white active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2
+           bg-transparent text-neutral-600 text-sm font-sans
+           px-4 py-2
+           transition-all duration-200
+           hover:text-neutral-900 hover:bg-neutral-100;
+  }
+
+  /* Input padrão */
+  .input {
+    @apply w-full px-4 py-3 
+           border border-neutral-200 bg-white
+           text-sm text-neutral-800 placeholder-neutral-400
+           transition-colors duration-150
+           focus:outline-none focus:border-neutral-900 focus:ring-0;
+  }
+
+  /* Label padrão */
+  .label {
+    @apply block text-xs font-sans font-medium text-neutral-500 uppercase tracking-widest mb-1.5;
+  }
+
+  /* Badge de quantidade */
+  .badge {
+    @apply inline-flex items-center justify-center
+           w-5 h-5 rounded-full
+           bg-neutral-900 text-white
+           text-2xs font-mono font-medium;
+  }
+
+  /* Tag de produto (novo, promoção) */
+  .tag {
+    @apply inline-block px-2 py-0.5 text-2xs font-sans font-medium uppercase tracking-widest;
+  }
+
+  .tag-promo {
+    @apply tag bg-promo-light text-promo;
+  }
+
+  .tag-new {
+    @apply tag bg-neutral-900 text-white;
+  }
+
+  /* Preço */
+  .price {
+    @apply font-mono text-neutral-900;
+  }
+
+  .price-promo {
+    @apply font-mono text-promo font-medium;
+  }
+
+  .price-original {
+    @apply font-mono text-neutral-400 line-through text-sm;
+  }
+
+  /* Divisor elegante */
+  .divider {
+    @apply border-t border-neutral-100;
+  }
+
+  /* Container padrão da loja */
+  .container-loja {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Seção com padding vertical padrão */
+  .section {
+    @apply py-16 lg:py-24;
+  }
+}
+
+@layer utilities {
+  /* Transição suave padrão */
+  .transition-smooth {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}

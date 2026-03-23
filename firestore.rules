@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // ── Produtos ─────────────────────────────────────────────────
+    // Qualquer um pode ler produtos ativos.
+    // Apenas admins podem criar, editar e excluir.
+    match /products/{productId} {
+      allow read: if resource.data.isActive == true || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── Pedidos ──────────────────────────────────────────────────
+    // Usuário autenticado pode criar e ler seus próprios pedidos.
+    // Admin pode ler e atualizar todos.
+    match /orders/{orderId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin();
+      allow delete: if false; // nunca deletar pedidos
+    }
+
+    // ── Usuários ─────────────────────────────────────────────────
+    // Usuário lê e atualiza apenas seus próprios dados.
+    // Admin lê todos.
+    match /users/{userId} {
+      allow read: if isAuthenticated() &&
+        (request.auth.uid == userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // ── Vitrines ─────────────────────────────────────────────────
+    // Qualquer um pode ler vitrines ativas.
+    // Apenas admins gerenciam.
+    match /vitrines/{vitrineId} {
+      allow read: if resource.data.isActive == true || isAdmin();
+      allow write: if isAdmin();
+    }
+  }
+}
